@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>engram dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        engram: {
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            accent: '#a78bfa',
+                            accent2: '#34d399',
+                            surface: '#1e293b',
+                            border: '#334155',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        body { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace; }
+    </style>
+</head>
+<body class="bg-engram-darker text-slate-200 min-h-screen" x-data="engramDashboard()" x-init="init()" x-cloak>
+
+    <!-- Header -->
+    <header class="bg-engram-dark border-b border-engram-border px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <h1 class="text-xl font-bold text-engram-accent">engram</h1>
+            <span class="text-sm text-slate-500">memory dashboard</span>
+        </div>
+        <div class="flex items-center gap-4 text-sm">
+            <div class="flex items-center gap-2">
+                <span class="relative flex h-2.5 w-2.5">
+                    <span class="absolute inline-flex h-full w-full rounded-full opacity-75"
+                          :class="health.status === 'ok' ? 'bg-engram-accent2 animate-ping' : 'bg-red-400 animate-ping'"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5"
+                          :class="health.status === 'ok' ? 'bg-engram-accent2' : 'bg-red-400'"></span>
+                </span>
+                <span :class="health.status === 'ok' ? 'text-engram-accent2' : 'text-red-400'"
+                      x-text="health.status === 'loading' ? 'connecting...' : health.status"></span>
+            </div>
+            <span class="text-slate-600">|</span>
+            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                <input type="checkbox" x-model="autoRefresh" class="accent-engram-accent h-3.5 w-3.5">
+                <span class="text-slate-400">auto-refresh</span>
+            </label>
+            <span class="text-slate-600" x-show="lastRefresh" x-text="'updated ' + lastRefresh"></span>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+
+        <!-- Stats Cards -->
+        <section>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Namespaces</h2>
+                <button @click="namespace = ''; fetchMemories()"
+                        x-show="namespace"
+                        class="text-xs text-engram-accent hover:text-engram-accent/80 transition">
+                    clear filter
+                </button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <template x-for="s in stats" :key="s.namespace">
+                    <button @click="selectNamespace(s.namespace)"
+                            class="bg-engram-surface border rounded-lg p-4 text-left transition hover:border-engram-accent/50 cursor-pointer"
+                            :class="namespace === s.namespace ? 'border-engram-accent' : 'border-engram-border'">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-semibold text-engram-accent" x-text="s.namespace"></span>
+                            <span class="text-2xl font-bold text-slate-100" x-text="s.count"></span>
+                        </div>
+                        <div class="text-xs text-slate-500 space-y-0.5">
+                            <div x-show="s.expired_count > 0" class="text-amber-400/80">
+                                <span x-text="s.expired_count"></span> expired
+                            </div>
+                            <div>oldest: <span x-text="formatDate(s.oldest)"></span></div>
+                            <div>newest: <span x-text="formatDate(s.newest)"></span></div>
+                        </div>
+                    </button>
+                </template>
+                <div x-show="stats.length === 0" class="col-span-full text-slate-500 text-sm py-8 text-center">
+                    No namespaces found. Store some memories first.
+                </div>
+            </div>
+        </section>
+
+        <!-- Memory Browser -->
+        <section class="bg-engram-surface border border-engram-border rounded-lg">
+            <!-- Filters -->
+            <div class="p-4 border-b border-engram-border flex flex-wrap gap-3 items-end">
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Namespace</label>
+                    <select x-model="namespace" @change="offset = 0; fetchMemories()"
+                            class="bg-engram-dark border border-engram-border rounded px-2.5 py-1.5 text-sm text-slate-200 min-w-[140px]">
+                        <option value="">all</option>
+                        <template x-for="s in stats" :key="s.namespace">
+                            <option :value="s.namespace" x-text="s.namespace"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Scope</label>
+                    <select x-model="scope" @change="offset = 0; fetchMemories()"
+                            class="bg-engram-dark border border-engram-border rounded px-2.5 py-1.5 text-sm text-slate-200 min-w-[120px]">
+                        <option value="">all</option>
+                        <option value="shared">shared</option>
+                        <option value="machine">machine</option>
+                        <option value="project">project</option>
+                        <option value="user">user</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">User ID</label>
+                    <input type="text" x-model.debounce.400ms="userId"
+                           @input="offset = 0; fetchMemories()"
+                           placeholder="any"
+                           class="bg-engram-dark border border-engram-border rounded px-2.5 py-1.5 text-sm text-slate-200 w-32">
+                </div>
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-xs text-slate-500 mb-1">Key prefix</label>
+                    <input type="text" x-model.debounce.400ms="keyPrefix"
+                           @input="offset = 0; fetchMemories()"
+                           placeholder="e.g. session/"
+                           class="bg-engram-dark border border-engram-border rounded px-2.5 py-1.5 text-sm text-slate-200 w-full">
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <div x-show="!namespace && memories.length === 0 && !loading" class="py-12 text-center text-slate-500 text-sm">
+                    Select a namespace to browse memories.
+                </div>
+                <table x-show="namespace" class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-xs text-slate-500 uppercase tracking-wider border-b border-engram-border">
+                            <th class="px-4 py-2.5 cursor-pointer hover:text-slate-300 select-none" @click="toggleSort('key')">
+                                Key
+                                <span x-show="sortBy === 'key'" x-text="sortOrder === 'asc' ? ' &uarr;' : ' &darr;'"></span>
+                            </th>
+                            <th class="px-4 py-2.5">Scope</th>
+                            <th class="px-4 py-2.5">User</th>
+                            <th class="px-4 py-2.5">Tags</th>
+                            <th class="px-4 py-2.5 cursor-pointer hover:text-slate-300 select-none" @click="toggleSort('created_at')">
+                                Created
+                                <span x-show="sortBy === 'created_at'" x-text="sortOrder === 'asc' ? ' &uarr;' : ' &darr;'"></span>
+                            </th>
+                            <th class="px-4 py-2.5 cursor-pointer hover:text-slate-300 select-none" @click="toggleSort('last_used_at')">
+                                Last Used
+                                <span x-show="sortBy === 'last_used_at'" x-text="sortOrder === 'asc' ? ' &uarr;' : ' &darr;'"></span>
+                            </th>
+                            <th class="px-4 py-2.5">Expires</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(m, idx) in memories" :key="m.key + m.scope + m.user_id">
+                            <tr>
+                                <td colspan="7" class="p-0">
+                                    <div class="border-b border-engram-border/50">
+                                        <div class="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] cursor-pointer hover:bg-engram-dark/40 transition"
+                                             @click="expandRow(m)">
+                                            <div class="px-4 py-2 truncate max-w-[300px]" :title="m.key">
+                                                <span class="text-engram-accent" x-text="m.key"></span>
+                                            </div>
+                                            <div class="px-4 py-2 text-slate-400 w-24" x-text="m.scope"></div>
+                                            <div class="px-4 py-2 text-slate-400 truncate w-32 max-w-[128px]" :title="m.user_id" x-text="m.user_id"></div>
+                                            <div class="px-4 py-2 text-slate-500 truncate w-32 max-w-[128px]" :title="m.tags" x-text="m.tags || '—'"></div>
+                                            <div class="px-4 py-2 text-slate-500 w-28" x-text="formatDate(m.created_at)"></div>
+                                            <div class="px-4 py-2 text-slate-500 w-28" x-text="formatDate(m.last_used_at)"></div>
+                                            <div class="px-4 py-2 w-28"
+                                                 :class="isExpired(m.expires_at) ? 'text-amber-400' : 'text-slate-500'"
+                                                 x-text="m.expires_at ? formatDate(m.expires_at) : '—'"></div>
+                                        </div>
+                                        <!-- Expanded value -->
+                                        <div x-show="expandedId === rowId(m)"
+                                             x-transition
+                                             class="px-4 py-3 bg-engram-dark/60 border-t border-engram-border/30">
+                                            <div x-show="expandedLoading" class="text-slate-500 text-xs">Loading value...</div>
+                                            <pre x-show="!expandedLoading"
+                                                 class="text-xs text-slate-300 whitespace-pre-wrap break-all max-h-64 overflow-y-auto"
+                                                 x-text="expandedValue"></pre>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="namespace && memories.length === 0 && !loading">
+                            <td colspan="7" class="py-8 text-center text-slate-500">No memories found.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div x-show="namespace && total > 0" class="px-4 py-3 border-t border-engram-border flex items-center justify-between text-sm">
+                <span class="text-slate-500">
+                    <span x-text="offset + 1"></span>–<span x-text="Math.min(offset + limit, total)"></span>
+                    of <span class="text-slate-300" x-text="total"></span>
+                </span>
+                <div class="flex gap-2">
+                    <button @click="prevPage()" :disabled="offset === 0"
+                            class="px-3 py-1 rounded border border-engram-border text-slate-400 hover:text-slate-200 hover:border-engram-accent/50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                        prev
+                    </button>
+                    <button @click="nextPage()" :disabled="offset + limit >= total"
+                            class="px-3 py-1 rounded border border-engram-border text-slate-400 hover:text-slate-200 hover:border-engram-accent/50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                        next
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading overlay -->
+        <div x-show="loading" class="fixed bottom-4 right-4 bg-engram-surface border border-engram-border rounded-lg px-4 py-2 text-sm text-slate-400 shadow-lg">
+            Loading...
+        </div>
+    </main>
+
+    <script>
+    function engramDashboard() {
+        return {
+            // State
+            health: { status: 'loading', checks: {} },
+            stats: [],
+            memories: [],
+            total: 0,
+            loading: false,
+
+            // Filters
+            namespace: '',
+            scope: '',
+            userId: '',
+            keyPrefix: '',
+            offset: 0,
+            limit: 50,
+            sortBy: 'key',
+            sortOrder: 'asc',
+
+            // UI
+            expandedId: null,
+            expandedValue: '',
+            expandedLoading: false,
+            autoRefresh: true,
+            lastRefresh: null,
+
+            async init() {
+                await Promise.all([this.fetchHealth(), this.fetchStats()]);
+                setInterval(() => {
+                    if (this.autoRefresh) this.refresh();
+                }, 30000);
+            },
+
+            async refresh() {
+                await this.fetchHealth();
+                await this.fetchStats();
+                if (this.namespace) await this.fetchMemories();
+                this.lastRefresh = new Date().toLocaleTimeString();
+            },
+
+            async fetchHealth() {
+                try {
+                    const r = await fetch('/health');
+                    this.health = await r.json();
+                } catch {
+                    this.health = { status: 'error', checks: {} };
+                }
+            },
+
+            async fetchStats() {
+                try {
+                    const r = await fetch('/admin/stats');
+                    const data = await r.json();
+                    this.stats = data.stats || [];
+                } catch {
+                    this.stats = [];
+                }
+            },
+
+            async fetchMemories() {
+                if (!this.namespace) {
+                    this.memories = [];
+                    this.total = 0;
+                    return;
+                }
+                this.loading = true;
+                try {
+                    const params = new URLSearchParams({
+                        namespace: this.namespace,
+                        offset: this.offset,
+                        limit: this.limit,
+                        sort_by: this.sortBy,
+                        sort_order: this.sortOrder,
+                    });
+                    if (this.scope) params.set('scope', this.scope);
+                    if (this.userId) params.set('user_id', this.userId);
+                    if (this.keyPrefix) params.set('key_prefix', this.keyPrefix);
+
+                    const r = await fetch('/admin/memories?' + params);
+                    const data = await r.json();
+                    this.memories = data.items || [];
+                    this.total = data.total || 0;
+                } catch {
+                    this.memories = [];
+                    this.total = 0;
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            rowId(m) {
+                return m.key + '|' + m.scope + '|' + m.user_id;
+            },
+
+            async expandRow(m) {
+                const id = this.rowId(m);
+                if (this.expandedId === id) {
+                    this.expandedId = null;
+                    return;
+                }
+                this.expandedId = id;
+                this.expandedLoading = true;
+                this.expandedValue = '';
+                try {
+                    const params = new URLSearchParams({
+                        namespace: this.namespace,
+                        key_prefix: m.key,
+                        scope: m.scope,
+                        user_id: m.user_id,
+                        include_value: 'true',
+                        value_max_length: '10000',
+                        limit: '1',
+                    });
+                    const r = await fetch('/admin/memories?' + params);
+                    const data = await r.json();
+                    if (data.items && data.items.length > 0) {
+                        this.expandedValue = data.items[0].value || '(empty)';
+                    } else {
+                        this.expandedValue = '(not found)';
+                    }
+                } catch {
+                    this.expandedValue = '(error loading value)';
+                } finally {
+                    this.expandedLoading = false;
+                }
+            },
+
+            // Pagination
+            prevPage() {
+                this.offset = Math.max(0, this.offset - this.limit);
+                this.expandedId = null;
+                this.fetchMemories();
+            },
+            nextPage() {
+                this.offset += this.limit;
+                this.expandedId = null;
+                this.fetchMemories();
+            },
+
+            // Sorting
+            toggleSort(col) {
+                if (this.sortBy === col) {
+                    this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortBy = col;
+                    this.sortOrder = 'asc';
+                }
+                this.offset = 0;
+                this.expandedId = null;
+                this.fetchMemories();
+            },
+
+            // Namespace card click
+            selectNamespace(ns) {
+                this.namespace = ns;
+                this.offset = 0;
+                this.expandedId = null;
+                this.fetchMemories();
+            },
+
+            // Formatting
+            formatDate(d) {
+                if (!d) return '—';
+                const dt = new Date(d);
+                const now = new Date();
+                const diff = now - dt;
+                if (diff < 60000) return 'just now';
+                if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+                if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+                if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
+                return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: dt.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+            },
+
+            isExpired(d) {
+                if (!d) return false;
+                return new Date(d) <= new Date();
+            },
+        };
+    }
+    </script>
+</body>
+</html>

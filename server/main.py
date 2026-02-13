@@ -8,7 +8,7 @@ from server.auth import BearerTokenMiddleware
 from server.config import settings
 from server.db import close_pool, init_pool
 from server.embeddings import close_client, init_client
-from server.routers import admin, health, memory
+from server.routers import admin, dashboard, health, memory
 from server.services.cleanup_task import expiration_cleanup_loop
 
 logging.basicConfig(
@@ -54,6 +54,7 @@ app.add_middleware(BearerTokenMiddleware)
 app.include_router(memory.router)
 app.include_router(admin.router)
 app.include_router(health.router)
+app.include_router(dashboard.router)
 
 
 if __name__ == "__main__":

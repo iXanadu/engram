@@ -23,8 +23,8 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
         if not settings.api_token:
             return await call_next(request)
 
-        # Always allow health checks without auth
-        if request.url.path == "/health":
+        # Always allow health checks and dashboard without auth
+        if request.url.path in ("/health", "/dashboard"):
             return await call_next(request)
 
         # Check Authorization header
