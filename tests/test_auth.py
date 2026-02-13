@@ -20,7 +20,10 @@ async def authed_client(services):
 @pytest.mark.asyncio
 async def test_no_token_configured_allows_all(client):
     """When ENGRAM_API_TOKEN is empty, all requests pass through."""
-    resp = await client.post("/memory/get", json={"key": "anything"})
+    resp = await client.post("/memory/get", json={
+        "namespace": "test",
+        "key": "anything",
+    })
     # Should get 200 (not_found), not 401
     assert resp.status_code == 200
 
@@ -35,7 +38,10 @@ async def test_health_bypasses_auth(authed_client):
 @pytest.mark.asyncio
 async def test_missing_token_returns_401(authed_client):
     """Requests without a token should get 401."""
-    resp = await authed_client.post("/memory/get", json={"key": "anything"})
+    resp = await authed_client.post("/memory/get", json={
+        "namespace": "test",
+        "key": "anything",
+    })
     assert resp.status_code == 401
     assert "Authentication required" in resp.json()["detail"]
 
@@ -45,7 +51,7 @@ async def test_wrong_token_returns_401(authed_client):
     """Requests with the wrong token should get 401."""
     resp = await authed_client.post(
         "/memory/get",
-        json={"key": "anything"},
+        json={"namespace": "test", "key": "anything"},
         headers={"Authorization": "Bearer wrong-token"},
     )
     assert resp.status_code == 401
@@ -57,7 +63,7 @@ async def test_correct_token_allows_request(authed_client):
     """Requests with the correct token should pass through."""
     resp = await authed_client.post(
         "/memory/get",
-        json={"key": "anything"},
+        json={"namespace": "test", "key": "anything"},
         headers={"Authorization": "Bearer test-secret"},
     )
     assert resp.status_code == 200

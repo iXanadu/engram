@@ -31,6 +31,7 @@ def _build_search_text(key: str, value: str, tags: str) -> str:
 
 
 async def memory_set(
+    namespace: str,
     key: str,
     value: str,
     scope: str = "user",
@@ -52,11 +53,10 @@ async def memory_set(
     async with pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO memories (key, value, scope, user_id, tags, tags_search, embedding, search_text, expires_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT (key, user_id) DO UPDATE SET
+            INSERT INTO memories (namespace, key, value, scope, user_id, tags, tags_search, embedding, search_text, expires_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            ON CONFLICT (namespace, key, scope, user_id) DO UPDATE SET
                 value = EXCLUDED.value,
-                scope = EXCLUDED.scope,
                 tags = EXCLUDED.tags,
                 tags_search = EXCLUDED.tags_search,
                 embedding = EXCLUDED.embedding,
@@ -64,6 +64,7 @@ async def memory_set(
                 expires_at = EXCLUDED.expires_at,
                 last_used_at = NOW()
             """,
+            namespace,
             key,
             value,
             scope,
@@ -77,23 +78,34 @@ async def memory_set(
     return key
 
 
-async def memory_get(key: str, user_id: str = "default") -> MemoryItem | None:
-    """Retrieve a memory by exact key for a specific user."""
+async def memory_get(
+    namespace: str,
+    key: str,
+    scope: str = "user",
+    user_id: str = "default",
+) -> MemoryItem | None:
+    """Retrieve a memory by exact key within a namespace."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT key, value, scope, user_id, tags, tags_search
+            SELECT namespace, key, value, scope, user_id, tags, tags_search
             FROM memories
-            WHERE key = $1 AND user_id = $2 AND (expires_at IS NULL OR expires_at > NOW())
+            WHERE namespace = $1 AND key = $2 AND scope = $3 AND user_id = $4
+              AND (expires_at IS NULL OR expires_at > NOW())
             """,
+            namespace,
             key,
+            scope,
             user_id,
         )
         if row:
             await conn.execute(
-                "UPDATE memories SET last_used_at = NOW() WHERE key = $1 AND user_id = $2",
+                """UPDATE memories SET last_used_at = NOW()
+                   WHERE namespace = $1 AND key = $2 AND scope = $3 AND user_id = $4""",
+                namespace,
                 key,
+                scope,
                 user_id,
             )
             return MemoryItem(**dict(row))
@@ -101,12 +113,13 @@ async def memory_get(key: str, user_id: str = "default") -> MemoryItem | None:
 
 
 async def memory_search(
+    namespace: str,
     query: str,
     scope: str = "user",
     user_id: str = "default",
     limit: int = 5,
 ) -> list[MemoryItem]:
-    """Hybrid vector + trigram search, scoped to a specific user."""
+    """Hybrid vector + trigram search, scoped to a namespace and user."""
     pool = await get_pool()
     query_embedding = await embed(query)
 
@@ -115,25 +128,27 @@ async def memory_search(
             """
             WITH vector_results AS (
                 SELECT
-                    key, value, scope, user_id, tags, tags_search,
+                    namespace, key, value, scope, user_id, tags, tags_search,
                     1 - (embedding <=> $1) AS vec_score,
                     similarity(search_text, $2) AS trgm_score
                 FROM memories
                 WHERE (expires_at IS NULL OR expires_at > NOW())
-                  AND scope = $3
-                  AND user_id = $4
+                  AND namespace = $3
+                  AND scope = $4
+                  AND user_id = $5
                 ORDER BY embedding <=> $1
-                LIMIT $5 * 3
+                LIMIT $6 * 3
             )
             SELECT *,
-                   vec_score + ($6 * trgm_score) AS combined_score
+                   vec_score + ($7 * trgm_score) AS combined_score
             FROM vector_results
-            WHERE vec_score >= $7 OR trgm_score >= $8
+            WHERE vec_score >= $8 OR trgm_score >= $9
             ORDER BY combined_score DESC
-            LIMIT $5
+            LIMIT $6
             """,
             query_embedding,
             query,
+            namespace,
             scope,
             user_id,
             limit,
@@ -147,6 +162,7 @@ async def memory_search(
         for row in rows:
             results.append(
                 MemoryItem(
+                    namespace=row["namespace"],
                     key=row["key"],
                     value=row["value"],
                     scope=row["scope"],
@@ -160,21 +176,31 @@ async def memory_search(
 
         if keys_to_update:
             await conn.execute(
-                "UPDATE memories SET last_used_at = NOW() WHERE key = ANY($1) AND user_id = $2",
+                """UPDATE memories SET last_used_at = NOW()
+                   WHERE namespace = $1 AND key = ANY($2) AND scope = $3 AND user_id = $4""",
+                namespace,
                 keys_to_update,
+                scope,
                 user_id,
             )
 
     return results
 
 
-async def memory_forget(key: str, user_id: str = "default") -> bool:
-    """Delete a memory by key for a specific user. Returns True if found and deleted."""
+async def memory_forget(
+    namespace: str,
+    key: str,
+    scope: str = "user",
+    user_id: str = "default",
+) -> bool:
+    """Delete a memory by key within a namespace. Returns True if found and deleted."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.execute(
-            "DELETE FROM memories WHERE key = $1 AND user_id = $2",
+            "DELETE FROM memories WHERE namespace = $1 AND key = $2 AND scope = $3 AND user_id = $4",
+            namespace,
             key,
+            scope,
             user_id,
         )
     return result == "DELETE 1"

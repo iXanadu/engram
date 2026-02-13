@@ -4,6 +4,7 @@ from pydantic import BaseModel, field_validator
 # --- Request models (match original Pyscript tool interface) ---
 
 class MemorySetRequest(BaseModel):
+    namespace: str
     key: str
     value: str
     scope: str = "user"
@@ -22,11 +23,14 @@ class MemorySetRequest(BaseModel):
 
 
 class MemoryGetRequest(BaseModel):
+    namespace: str
     key: str
+    scope: str = "user"
     user_id: str = "default"
 
 
 class MemorySearchRequest(BaseModel):
+    namespace: str
     query: str
     scope: str = "user"
     user_id: str = "default"
@@ -41,13 +45,16 @@ class MemorySearchRequest(BaseModel):
 
 
 class MemoryForgetRequest(BaseModel):
+    namespace: str
     key: str
+    scope: str = "user"
     user_id: str = "default"
 
 
 # --- Response models ---
 
 class MemoryItem(BaseModel):
+    namespace: str
     key: str
     value: str
     scope: str

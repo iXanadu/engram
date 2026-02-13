@@ -26,9 +26,10 @@ router = APIRouter(prefix="/memory", tags=["memory"])
 
 @router.post("/set", response_model=MemorySetResponse)
 async def set_memory(req: MemorySetRequest):
-    logger.debug(f"SET key={req.key} user_id={req.user_id} scope={req.scope}")
+    logger.debug(f"SET ns={req.namespace} key={req.key} user_id={req.user_id} scope={req.scope}")
     try:
         key = await memory_set(
+            namespace=req.namespace,
             key=req.key,
             value=req.value,
             scope=req.scope,
@@ -45,9 +46,14 @@ async def set_memory(req: MemorySetRequest):
 
 @router.post("/get", response_model=MemoryGetResponse)
 async def get_memory(req: MemoryGetRequest):
-    logger.debug(f"GET key={req.key} user_id={req.user_id}")
+    logger.debug(f"GET ns={req.namespace} key={req.key} scope={req.scope} user_id={req.user_id}")
     try:
-        item = await memory_get(req.key, user_id=req.user_id)
+        item = await memory_get(
+            namespace=req.namespace,
+            key=req.key,
+            scope=req.scope,
+            user_id=req.user_id,
+        )
         if item:
             return MemoryGetResponse(status="ok", memory=item)
         return MemoryGetResponse(status="not_found")
@@ -58,9 +64,10 @@ async def get_memory(req: MemoryGetRequest):
 
 @router.post("/search", response_model=MemorySearchResponse)
 async def search_memory(req: MemorySearchRequest):
-    logger.debug(f"SEARCH query={req.query!r} user_id={req.user_id} scope={req.scope}")
+    logger.debug(f"SEARCH ns={req.namespace} query={req.query!r} user_id={req.user_id} scope={req.scope}")
     try:
         results = await memory_search(
+            namespace=req.namespace,
             query=req.query,
             scope=req.scope,
             user_id=req.user_id,
@@ -74,9 +81,14 @@ async def search_memory(req: MemorySearchRequest):
 
 @router.post("/forget", response_model=MemoryForgetResponse)
 async def forget_memory(req: MemoryForgetRequest):
-    logger.debug(f"FORGET key={req.key} user_id={req.user_id}")
+    logger.debug(f"FORGET ns={req.namespace} key={req.key} scope={req.scope} user_id={req.user_id}")
     try:
-        deleted = await memory_forget(req.key, user_id=req.user_id)
+        deleted = await memory_forget(
+            namespace=req.namespace,
+            key=req.key,
+            scope=req.scope,
+            user_id=req.user_id,
+        )
         status = "ok" if deleted else "not_found"
         return MemoryForgetResponse(status=status, key=req.key)
     except Exception as e:

@@ -17,6 +17,7 @@ sequence:
             data:
               key: "{{ key }}"
               value: "{{ value }}"
+              namespace: "{{ namespace | default('ha') }}"
               scope: "{{ scope | default('user') }}"
               user_id: "{{ context.user_id | default('default') }}"
               tags: "{{ tags | default('') }}"
@@ -32,6 +33,8 @@ sequence:
           - service: pyscript.memory_get
             data:
               key: "{{ key }}"
+              namespace: "{{ namespace | default('ha') }}"
+              scope: "{{ scope | default('user') }}"
               user_id: "{{ context.user_id | default('default') }}"
             response_variable: result
           - stop: "{{ result }}"
@@ -43,6 +46,7 @@ sequence:
           - service: pyscript.memory_search
             data:
               query: "{{ query }}"
+              namespace: "{{ namespace | default('ha') }}"
               scope: "{{ scope | default('user') }}"
               user_id: "{{ context.user_id | default('default') }}"
               limit: "{{ limit | default(5) }}"
@@ -56,6 +60,8 @@ sequence:
           - service: pyscript.memory_forget
             data:
               key: "{{ key }}"
+              namespace: "{{ namespace | default('ha') }}"
+              scope: "{{ scope | default('user') }}"
               user_id: "{{ context.user_id | default('default') }}"
             response_variable: result
           - stop: "{{ result }}"
@@ -88,6 +94,12 @@ fields:
   query:
     name: Query
     description: "Search query (required for search)"
+    selector:
+      text:
+  namespace:
+    name: Namespace
+    description: "Memory namespace (e.g. ha, claude-code)"
+    default: "ha"
     selector:
       text:
   scope:

@@ -16,6 +16,7 @@ async def test_health(client):
 async def test_set_and_get(client):
     # Set
     resp = await client.post("/memory/set", json={
+        "namespace": "test",
         "key": "test_api_key",
         "value": "test_api_value",
         "tags": "testing api",
@@ -24,20 +25,28 @@ async def test_set_and_get(client):
     assert resp.json()["status"] == "ok"
 
     # Get
-    resp = await client.post("/memory/get", json={"key": "test_api_key"})
+    resp = await client.post("/memory/get", json={
+        "namespace": "test",
+        "key": "test_api_key",
+    })
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
     assert data["memory"]["value"] == "test_api_value"
+    assert data["memory"]["namespace"] == "test"
 
     # Clean up
-    await client.post("/memory/forget", json={"key": "test_api_key"})
+    await client.post("/memory/forget", json={
+        "namespace": "test",
+        "key": "test_api_key",
+    })
 
 
 @pytest.mark.asyncio
 async def test_search(client):
     # Store a memory
     await client.post("/memory/set", json={
+        "namespace": "test",
         "key": "favorite_color",
         "value": "blue",
         "tags": "preference color",
@@ -45,6 +54,7 @@ async def test_search(client):
 
     # Search semantically
     resp = await client.post("/memory/search", json={
+        "namespace": "test",
         "query": "what color do they like",
         "limit": 3,
     })
@@ -55,31 +65,107 @@ async def test_search(client):
     assert any(r["key"] == "favorite_color" for r in data["results"])
 
     # Clean up
-    await client.post("/memory/forget", json={"key": "favorite_color"})
+    await client.post("/memory/forget", json={
+        "namespace": "test",
+        "key": "favorite_color",
+    })
 
 
 @pytest.mark.asyncio
 async def test_forget(client):
-    await client.post("/memory/set", json={"key": "to_delete", "value": "gone"})
-    resp = await client.post("/memory/forget", json={"key": "to_delete"})
+    await client.post("/memory/set", json={
+        "namespace": "test",
+        "key": "to_delete",
+        "value": "gone",
+    })
+    resp = await client.post("/memory/forget", json={
+        "namespace": "test",
+        "key": "to_delete",
+    })
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
-    resp = await client.post("/memory/get", json={"key": "to_delete"})
+    resp = await client.post("/memory/get", json={
+        "namespace": "test",
+        "key": "to_delete",
+    })
     assert resp.json()["status"] == "not_found"
 
 
 @pytest.mark.asyncio
 async def test_get_not_found(client):
-    resp = await client.post("/memory/get", json={"key": "nonexistent_key_12345"})
+    resp = await client.post("/memory/get", json={
+        "namespace": "test",
+        "key": "nonexistent_key_12345",
+    })
     assert resp.status_code == 200
     assert resp.json()["status"] == "not_found"
 
 
 @pytest.mark.asyncio
 async def test_search_empty_query_rejected(client):
-    resp = await client.post("/memory/search", json={"query": ""})
+    resp = await client.post("/memory/search", json={
+        "namespace": "test",
+        "query": "",
+    })
     assert resp.status_code == 422
 
-    resp = await client.post("/memory/search", json={"query": "   "})
+    resp = await client.post("/memory/search", json={
+        "namespace": "test",
+        "query": "   ",
+    })
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_namespace_isolation(client):
+    """Same key in two namespaces should be independent."""
+    # Store in namespace "alpha"
+    await client.post("/memory/set", json={
+        "namespace": "alpha",
+        "key": "shared_key",
+        "value": "alpha_value",
+    })
+    # Store in namespace "beta"
+    await client.post("/memory/set", json={
+        "namespace": "beta",
+        "key": "shared_key",
+        "value": "beta_value",
+    })
+
+    # Get from alpha
+    resp = await client.post("/memory/get", json={
+        "namespace": "alpha",
+        "key": "shared_key",
+    })
+    assert resp.json()["memory"]["value"] == "alpha_value"
+
+    # Get from beta
+    resp = await client.post("/memory/get", json={
+        "namespace": "beta",
+        "key": "shared_key",
+    })
+    assert resp.json()["memory"]["value"] == "beta_value"
+
+    # Clean up
+    await client.post("/memory/forget", json={"namespace": "alpha", "key": "shared_key"})
+    await client.post("/memory/forget", json={"namespace": "beta", "key": "shared_key"})
+
+
+@pytest.mark.asyncio
+async def test_namespace_required(client):
+    """Omitting namespace should return 422."""
+    resp = await client.post("/memory/set", json={
+        "key": "no_ns",
+        "value": "should fail",
+    })
+    assert resp.status_code == 422
+
+    resp = await client.post("/memory/get", json={"key": "no_ns"})
+    assert resp.status_code == 422
+
+    resp = await client.post("/memory/search", json={"query": "anything"})
+    assert resp.status_code == 422
+
+    resp = await client.post("/memory/forget", json={"key": "no_ns"})
     assert resp.status_code == 422

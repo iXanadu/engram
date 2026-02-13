@@ -8,11 +8,11 @@ import pytest_asyncio
 
 # Memories to store for testing
 TEST_MEMORIES = [
-    {"key": "my_location", "value": "Portland, OR", "tags": "home address city"},
-    {"key": "wife_name", "value": "Sarah", "tags": "spouse family"},
-    {"key": "favorite_food", "value": "sushi", "tags": "preference food"},
-    {"key": "pet_name", "value": "Rex", "tags": "dog pet animal"},
-    {"key": "work_title", "value": "Software Engineer", "tags": "job career"},
+    {"namespace": "test", "key": "my_location", "value": "Portland, OR", "tags": "home address city"},
+    {"namespace": "test", "key": "wife_name", "value": "Sarah", "tags": "spouse family"},
+    {"namespace": "test", "key": "favorite_food", "value": "sushi", "tags": "preference food"},
+    {"namespace": "test", "key": "pet_name", "value": "Rex", "tags": "dog pet animal"},
+    {"namespace": "test", "key": "work_title", "value": "Software Engineer", "tags": "job career"},
 ]
 
 
@@ -23,13 +23,17 @@ async def seeded_client(client):
         await client.post("/memory/set", json=mem)
     yield client
     for mem in TEST_MEMORIES:
-        await client.post("/memory/forget", json={"key": mem["key"]})
+        await client.post("/memory/forget", json={
+            "namespace": mem["namespace"],
+            "key": mem["key"],
+        })
 
 
 @pytest.mark.asyncio
 async def test_where_do_i_live(seeded_client):
     """THE critical test: 'where do I live' must find my_location."""
     resp = await seeded_client.post("/memory/search", json={
+        "namespace": "test",
         "query": "where do I live",
         "limit": 3,
     })
@@ -43,6 +47,7 @@ async def test_where_do_i_live(seeded_client):
 async def test_what_is_my_wifes_name(seeded_client):
     """THE other critical test: 'what is my wife's name' must find wife_name."""
     resp = await seeded_client.post("/memory/search", json={
+        "namespace": "test",
         "query": "what is my wife's name",
         "limit": 3,
     })
@@ -55,6 +60,7 @@ async def test_what_is_my_wifes_name(seeded_client):
 @pytest.mark.asyncio
 async def test_what_do_i_do_for_work(seeded_client):
     resp = await seeded_client.post("/memory/search", json={
+        "namespace": "test",
         "query": "what do I do for work",
         "limit": 3,
     })
@@ -66,6 +72,7 @@ async def test_what_do_i_do_for_work(seeded_client):
 @pytest.mark.asyncio
 async def test_what_is_my_dogs_name(seeded_client):
     resp = await seeded_client.post("/memory/search", json={
+        "namespace": "test",
         "query": "what is my dog's name",
         "limit": 3,
     })
@@ -77,7 +84,10 @@ async def test_what_is_my_dogs_name(seeded_client):
 @pytest.mark.asyncio
 async def test_exact_key_still_works(seeded_client):
     """Exact key lookup should still work perfectly."""
-    resp = await seeded_client.post("/memory/get", json={"key": "my_location"})
+    resp = await seeded_client.post("/memory/get", json={
+        "namespace": "test",
+        "key": "my_location",
+    })
     data = resp.json()
     assert data["status"] == "ok"
     assert data["memory"]["value"] == "Portland, OR"
