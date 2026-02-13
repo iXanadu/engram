@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# Start engram locally for development.
+# Uses port 8921 by default to avoid conflict with production on 8920.
+#
+# Usage:
+#   ./scripts/dev              # foreground on :8921
+#   ./scripts/dev 8920         # foreground on :8920 (stop prod first!)
+#   ./scripts/dev --bg         # background on :8921
+#   ./scripts/dev --bg 8925    # background on :8925
+
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_DIR"
+
+BACKGROUND=false
+PORT=8921
+
+# Parse args
+for arg in "$@"; do
+    case "$arg" in
+        --bg) BACKGROUND=true ;;
+        [0-9]*) PORT="$arg" ;;
+    esac
+done
+
+PIDFILE="logs/engram-dev.pid"
+LOGFILE="logs/engram-dev.out"
+
+mkdir -p logs
+
+# Check port conflict
+if lsof -i :"$PORT" -sTCP:LISTEN &>/dev/null; then
+    echo "Port $PORT already in use:"
+    lsof -i :"$PORT" -sTCP:LISTEN | head -3
+    exit 1
+fi
+
+# Check for stale pidfile
+if [ -f "$PIDFILE" ]; then
+    OLD_PID=$(cat "$PIDFILE")
+    if kill -0 "$OLD_PID" 2>/dev/null; then
+        echo "engram dev already running (PID $OLD_PID)"
+        echo "  Stop: kill $OLD_PID"
+        echo "  Or:   ./scripts/dev-stop"
+        exit 1
+    fi
+    rm -f "$PIDFILE"
+fi
+
+export ENGRAM_PORT="$PORT"
+
+if [ "$BACKGROUND" = true ]; then
+    echo "Starting engram dev (background)..."
+    nohup uvicorn server.main:app --host 0.0.0.0 --port "$PORT" --reload >> "$LOGFILE" 2>&1 &
+    PID=$!
+    echo "$PID" > "$PIDFILE"
+
+    sleep 2
+    if kill -0 "$PID" 2>/dev/null; then
+        echo "engram dev started (PID $PID)"
+        echo "  Dashboard: http://localhost:$PORT/dashboard"
+        echo "  Health:    http://localhost:$PORT/health"
+        echo "  Logs:      tail -f $LOGFILE"
+        echo "  Stop:      kill $PID"
+    else
+        echo "Failed to start — check $LOGFILE"
+        rm -f "$PIDFILE"
+        exit 1
+    fi
+else
+    echo "Starting engram dev (foreground, Ctrl-C to stop)..."
+    echo "  Dashboard: http://localhost:$PORT/dashboard"
+    echo "  Health:    http://localhost:$PORT/health"
+    echo ""
+    exec uvicorn server.main:app --host 0.0.0.0 --port "$PORT" --reload
+fi
