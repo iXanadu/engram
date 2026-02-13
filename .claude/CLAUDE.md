@@ -50,8 +50,8 @@ UNIQUE constraint: `(namespace, key, scope, user_id)`
 
 ## Related Projects
 
-- `~/projects/ha-semantic-memory` — The original. Production at `/opt/srv/ha-semantic-memory`. Config prefix `HAMEM_`, DB `ha_memory`.
-- `~/projects/claude-memory-mcp` — MCP bridge that CC uses to talk to engram. Config has `memory_namespace = "claude-code"`. Installed in `cc-memory-3.12` pyenv.
+- `~/projects/ha-semantic-memory` — The original (superseded). Config prefix `HAMEM_`, DB `ha_memory`.
+- `integrations/claude-code/` — MCP bridge (engram-mcp) that CC uses to talk to engram. Installed in `cc-memory-3.12` pyenv. Replaces the old standalone `claude-memory-mcp` repo.
 
 ## State Management
 
