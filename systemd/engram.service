@@ -1,0 +1,26 @@
+# engram systemd service
+#
+# This is a reference template. The install script (scripts/install.sh)
+# generates a service file with correct paths automatically.
+#
+# Manual install:
+#   sudo cp systemd/engram.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now engram
+
+[Unit]
+Description=engram FastAPI service
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/opt/srv/engram
+ExecStart=/home/YOUR_USERNAME/.pyenv/versions/engram-3.12/bin/uvicorn server.main:app --host 0.0.0.0 --port 8920
+Restart=always
+RestartSec=5
+Environment=PATH=/home/YOUR_USERNAME/.pyenv/versions/engram-3.12/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

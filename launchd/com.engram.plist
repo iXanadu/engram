@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  engram LaunchDaemon (macOS)
+  Starts at boot — no login required.
+
+  This is a reference template. The install script (scripts/install.sh)
+  generates a plist with correct paths automatically.
+
+  Manual install:
+    sudo cp launchd/com.engram.plist /Library/LaunchDaemons/
+    sudo chown root:wheel /Library/LaunchDaemons/com.engram.plist
+    sudo launchctl load /Library/LaunchDaemons/com.engram.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.engram</string>
+    <key>UserName</key>
+    <string>YOUR_USERNAME</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOUR_USERNAME/.pyenv/versions/engram-3.12/bin/uvicorn</string>
+        <string>server.main:app</string>
+        <string>--host</string>
+        <string>0.0.0.0</string>
+        <string>--port</string>
+        <string>8920</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/opt/srv/engram</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/YOUR_USERNAME</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/opt/postgresql@17/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/opt/srv/engram/logs/engram.log</string>
+    <key>StandardErrorPath</key>
+    <string>/opt/srv/engram/logs/engram.err</string>
+</dict>
+</plist>
