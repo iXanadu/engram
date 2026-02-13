@@ -22,3 +22,10 @@ async def client(services):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
+
+
+@pytest_asyncio.fixture
+async def db_pool(services):
+    """Raw database pool for direct SQL in tests."""
+    from server.db import get_pool
+    return await get_pool()

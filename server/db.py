@@ -35,6 +35,8 @@ CREATE INDEX IF NOT EXISTS idx_memories_namespace ON memories (namespace);
 CREATE INDEX IF NOT EXISTS idx_memories_ns_scope_uid ON memories (namespace, scope, user_id);
 CREATE INDEX IF NOT EXISTS idx_memories_search_text_trgm ON memories
     USING gin (search_text gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_memories_expires_at ON memories (expires_at)
+    WHERE expires_at IS NOT NULL;
 """
 
 # Migration: add namespace column to tables created before this column existed.

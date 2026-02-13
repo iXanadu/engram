@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Optional API token — if set, all requests must include Authorization: Bearer <token>
     api_token: str = ""
 
+    # Expiration cleanup
+    cleanup_enabled: bool = True
+    cleanup_interval_hours: int = 6
+    cleanup_batch_size: int = 500
+
     # Search tuning
     vector_threshold: float = 0.35
     trigram_weight: float = 0.15

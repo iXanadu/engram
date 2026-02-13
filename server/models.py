@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, field_validator
 
 
@@ -82,3 +84,63 @@ class MemorySearchResponse(BaseModel):
 class MemoryForgetResponse(BaseModel):
     status: str
     key: str
+
+
+# --- Admin models ---
+
+class MemoryListItem(BaseModel):
+    key: str
+    value: str | None = None
+    scope: str
+    user_id: str
+    tags: str
+    created_at: datetime
+    last_used_at: datetime
+    expires_at: datetime | None = None
+
+
+class MemoryListResponse(BaseModel):
+    status: str
+    total: int
+    offset: int
+    limit: int
+    items: list[MemoryListItem]
+
+
+class NamespaceStats(BaseModel):
+    namespace: str
+    scope: str | None = None
+    count: int
+    oldest: datetime | None = None
+    newest: datetime | None = None
+    expired_count: int = 0
+
+
+class MemoryStatsResponse(BaseModel):
+    status: str
+    stats: list[NamespaceStats]
+
+
+class BulkDeleteRequest(BaseModel):
+    namespace: str
+    key_prefix: str
+    scope: str | None = None
+    user_id: str | None = None
+    older_than_days: int | None = None
+
+    @field_validator("key_prefix", mode="before")
+    @classmethod
+    def key_prefix_not_empty(cls, v):
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("key_prefix must not be empty")
+        return v
+
+
+class BulkDeleteResponse(BaseModel):
+    status: str
+    deleted_count: int
+
+
+class CleanupResponse(BaseModel):
+    status: str
+    deleted_count: int
