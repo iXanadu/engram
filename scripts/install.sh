@@ -92,6 +92,44 @@ fi
 
 mkdir -p "$APP_DIR/logs"
 
+# --- Claude Code global CLAUDE.md ---
+
+CLAUDE_DIR="$HOME/.claude"
+CLAUDE_MD_SRC="$APP_DIR/docs/CLAUDE.md.global"
+CLAUDE_MD_DST="$CLAUDE_DIR/CLAUDE.md"
+
+if [ -f "$CLAUDE_MD_SRC" ]; then
+    mkdir -p "$CLAUDE_DIR"
+    if [ -f "$CLAUDE_MD_DST" ]; then
+        # Back up existing before overwriting
+        cp "$CLAUDE_MD_DST" "${CLAUDE_MD_DST}.bak"
+        echo "Backed up existing CLAUDE.md → CLAUDE.md.bak"
+    fi
+    cp "$CLAUDE_MD_SRC" "$CLAUDE_MD_DST"
+    echo "Installed global CLAUDE.md → $CLAUDE_MD_DST"
+else
+    echo "NOTE: No docs/CLAUDE.md.global found — skipping global CLAUDE.md install"
+fi
+
+# --- Claude Code MCP sub-package (engram-mcp) ---
+
+MCP_VENV="cc-memory-3.12"
+MCP_PKG="$APP_DIR/integrations/claude-code"
+
+if [ -d "$MCP_PKG" ]; then
+    MCP_PIP="$PYENV_ROOT/versions/$MCP_VENV/bin/pip"
+    if [ -x "$MCP_PIP" ]; then
+        echo "Installing engram-mcp into $MCP_VENV..."
+        "$MCP_PIP" install -e "$MCP_PKG" --quiet
+        echo "engram-mcp installed"
+    else
+        echo "WARNING: $MCP_VENV virtualenv not found — skipping engram-mcp install"
+        echo "Create it: pyenv virtualenv 3.12 $MCP_VENV"
+    fi
+else
+    echo "NOTE: No integrations/claude-code/ found — skipping MCP install"
+fi
+
 # --- Service installation ---
 
 UVICORN="$PYENV_ROOT/versions/$VENV_NAME/bin/uvicorn"
