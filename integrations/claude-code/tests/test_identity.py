@@ -12,9 +12,35 @@ def test_default_identity_is_project_derived(monkeypatch):
     _host(monkeypatch)
     monkeypatch.delenv(identity.INBOX_IDENTITY_ENV, raising=False)
     monkeypatch.setattr(identity, "derive_project_name", lambda _d: "projbeta")
+    monkeypatch.setattr(identity, "resolve_inbox_identity", lambda _d: None)
     reader, listen_set = compute_identity("/whatever")
     assert reader == "projbeta@hosta"
     assert listen_set == ["projbeta", "machine:hosta", "projbeta@hosta"]
+
+
+def test_identity_from_engram_cfg_when_no_env(monkeypatch):
+    _host(monkeypatch)
+    monkeypatch.delenv(identity.INBOX_IDENTITY_ENV, raising=False)
+    monkeypatch.setattr(identity, "derive_project_name", lambda _d: "projbeta")
+    # file-driven: .engram.cfg declares inbox_identity, no env var set
+    monkeypatch.setattr(identity, "resolve_inbox_identity", lambda _d: "projbeta-app")
+    reader, listen_set = compute_identity("/whatever")
+    assert reader == "projbeta-app@hosta"
+    assert listen_set == [
+        "projbeta-app",
+        "projbeta",
+        "machine:hosta",
+        "projbeta-app@hosta",
+    ]
+
+
+def test_env_var_wins_over_engram_cfg(monkeypatch):
+    _host(monkeypatch)
+    monkeypatch.setattr(identity, "derive_project_name", lambda _d: "projbeta")
+    monkeypatch.setattr(identity, "resolve_inbox_identity", lambda _d: "from-file")
+    monkeypatch.setenv(identity.INBOX_IDENTITY_ENV, "from-env")
+    reader, _ = compute_identity("/whatever")
+    assert reader == "from-env@hosta"
 
 
 def test_override_gives_distinct_identity_but_keeps_project_group(monkeypatch):
