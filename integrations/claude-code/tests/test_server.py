@@ -54,7 +54,8 @@ async def test_memory_store_sends_provenance_and_identity(respx_mock):
     import json as _json
     body = _json.loads(req.content)
     assert body["reader_identity"] == "engram@hosta"
-    assert body["listen_set"] == ["engram", "machine:hosta", "engram@hosta"]
+    assert body["listen_set"] == ["engram", "engram-claude",
+        "engram-claude@hosta", "machine:hosta", "engram@hosta"]
 
 
 @respx.mock(base_url="http://localhost:8920")
