@@ -501,6 +501,23 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   coalesces deferred wakes server-side. ⛔ Waits on the OWNER's confirm
   that an unaddressed peer post may wake nobody immediately — his rooms,
   his call.
+  ⛔ **AND HE HAS NOW ANSWERED, AGAINST THIS ITEM'S PREMISE (2026-08-23
+  17:57Z).** *"A huddle message is ALWAYS broadcast to the team. Where this
+  has been helpful, dozens of times, is corrections."* The 42% figure is
+  real; calling all of it waste was wrong. A correction landing on every
+  seat at once is the room working — and it is precisely an unmentioned
+  broadcast, so the coalescing proposal above would delay or drop the most
+  valuable class of message in the room. Measured the same day: three
+  agents corrected each other repeatedly, every correction reached all four
+  seats, and several changed what another agent was about to build.
+  **DO NOT BUILD THE COALESCER.** If the number ever needs to come down, it
+  must come from making an IRRELEVANT turn cheap, never from making a
+  RELEVANT one arrive late. Reducing broadcast trades a cost he is willing
+  to pay for a benefit he has counted dozens of times.
+  `class:measurement-right-meaning-wrong` — the count was sound and the
+  conclusion drawn from it was not. Second instance in ten minutes from the
+  same author; see also PAGE-INTENT-1, where 55-of-57 was real but was NOT
+  the cause of the pushes it was cited for.
 
 - **CTX-1-SWEEP** The once-per-session banner/guidance bridge (afcc010,
   2026-08-21) is live on hosta only; spokes run the ec39872 bridge until
