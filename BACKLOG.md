@@ -75,7 +75,16 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 - **WAKE-POINTS-AT-EMPTY-BOX-1** *(2026-08-23, cross-system; the defect that
   actually stopped the owner working. AB owns the fix. This entry exists to
   stop someone fixing it on OUR side by undoing a deliberate design.)*
-  A hub-woken Cursor seat is told *"new mail arrived — read your inbox"*.
+  ⚠️ **SCOPE WIDENED SAME DAY — NOT a Cursor bug.** First written as Cursor-
+  specific; the owner challenged that ("I see the exact same entries when Grok
+  is idle, most frequent is Grok-APP") and he was right. It hits **every
+  AB-DRIVEN seat — cursor, grok, codex** — because the defect is in the
+  CONVERSION, not the provider: an AB-driven seat never reads the wake line
+  itself, so whatever the line carried is discarded and replaced with a
+  generic prompt. A Claude seat reads the raw line and the content survives,
+  which is the only reason Claude seats answer in rooms at all. The owner had
+  been watching this on Grok-APP for four days.
+  A hub-woken seat is told *"new mail arrived — read your inbox"*.
   Room traffic is **letters-off by design**: a huddle records every utterance
   in its TRANSCRIPT and announces by WAKES, writing **no inbox rows at all**.
   So the seat wakes, reads an empty mailbox, correctly concludes there is
