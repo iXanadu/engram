@@ -108,7 +108,8 @@ async def release_seat(req: SeatReleaseRequest, request: Request):
     """
     check_namespace_access(get_current_principal(request), SEAT_NAMESPACE, "write")
     try:
-        released = await seat_release(req.session_key, req.project)
+        released = await seat_release(req.session_key, req.project,
+                                      req.evidence)
     except Exception:
         logger.exception("seat_release failed")
         raise HTTPException(status_code=500, detail="internal error — see server logs")

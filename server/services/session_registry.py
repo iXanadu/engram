@@ -35,6 +35,7 @@ holes this implementation closes.
 """
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 
 from server.db import get_pool
@@ -56,6 +57,8 @@ from server.services.memory_service import (
     _row_to_inbox_message,
     _watcher_state,
 )
+
+logger = logging.getLogger(__name__)
 
 SEAT_NAMESPACE = INBOX_NAMESPACE
 
@@ -188,7 +191,8 @@ def is_reserved_root(seat: str, project: str) -> bool:
 
 def allocation_decision(*, root: bool, lane: bool, age: float | None,
                         holds_mail: bool, presence_fresh: bool,
-                        last_used_at=None) -> dict:
+                        last_used_at=None,
+                        live_at_address: bool = False) -> dict:
     """THE skip ladder — the single copy (ADDR-REG-1).
 
     Consulted by BOTH seat_claim (which gathers facts per candidate and
@@ -198,8 +202,23 @@ def allocation_decision(*, root: bool, lane: bool, age: float | None,
     fact-gathering necessarily differs (point-reads vs batch), the decision
     must not.
 
-    Ladder: root -> lane -> (no row: mail parks, else free) -> live ->
-    grace -> mail -> fresh presence -> free.
+    Ladder: root -> lane -> (no row: mail parks, LIVE-NO-ROW parks, else
+    free) -> live -> grace -> mail -> fresh presence -> free.
+
+    ALLOC-LIVENESS-1 (2026-08-23). Until this rung existed the no-row branch
+    was not a weaker ladder, it was NO ladder: `live-holder`, `grace-window`
+    and `presence-fresh` all sit BELOW it and are unreachable without a row,
+    so deleting a live session's row handed its address to the next claimant
+    with only `holds_mail` in the way. Nothing had ever deleted a live
+    session's row before, so the hole was invisible — and the one surviving
+    lock was anti-correlated with good behaviour, since a session that
+    drains its inbox to zero (which the wrapup rules instruct) holds no mail.
+
+    `live_at_address` is computed by the CALLER and passed in, exactly as
+    `presence_fresh` is, because ADDR-REG-1 requires this ladder stay ONE
+    copy shared by the allocator and the register. A liveness check added
+    beside this function instead of inside it is how the register starts
+    lying about what the allocator would do.
     """
     if root:
         return {"would_skip": True, "reason": "reserved-root",
@@ -210,6 +229,14 @@ def allocation_decision(*, root: bool, lane: bool, age: float | None,
     if age is None:
         if holds_mail:
             return {"would_skip": True, "reason": "mail-parked",
+                    "grace_expires_at": None}
+        # A DISTINCT reason, deliberately not folded into `live-holder`:
+        # this one means "no seat row, but something is answering here",
+        # which should only ever happen after a release that was wrong.
+        # When it fires, a release inferred a death that had not happened —
+        # and we want to be able to find out which one.
+        if live_at_address:
+            return {"would_skip": True, "reason": "live-no-row",
                     "grace_expires_at": None}
         return {"would_skip": False, "reason": None, "grace_expires_at": None}
     if age < SEAT_LIVE_SECONDS:
@@ -243,6 +270,12 @@ _PARKED_REASON_TEXT = {
         "take the name"
     ),
     "presence-fresh": "a session is actively heartbeating at it",
+    "live-no-row": (
+        "it holds no seat row, but a session is still heartbeating at that "
+        "address — which means a release inferred a death that had not "
+        "happened. The name is NOT free; report this rather than working "
+        "around it, because something released a live session's address"
+    ),
     "reserved-root": "it is a project root (channel), never a seat",
     "reserved-lane": "it is a lane (immortal mailbox), never a seat",
 }
@@ -399,6 +432,95 @@ async def _presence_is_fresh(conn, seat: str, project: str) -> bool:
         return False
     age = (datetime.now(timezone.utc) - row["last_used_at"]).total_seconds()
     return age < SEAT_LIVE_SECONDS
+
+
+async def _breathing_at(conn, seats: list[str], project: str,
+                        exclude_nonce: str | None = None) -> set[str]:
+    """ALLOC-LIVENESS-1: which of these addresses is SOMEONE ELSE breathing at,
+    with no clean release behind it? One query for the whole candidate list,
+    never one per candidate.
+
+    ⚠️ NAME MEANS WHAT IT SAYS: this answers "is something answering here",
+    NOT "is something answering here with no seat row". It knows nothing about
+    seat rows. The no-row part is the CALLER's context — the ladder consults it
+    only on the branch where a row is absent. An earlier name
+    (`_live_without_row`) implied a check this does not perform, which is how a
+    future caller would use it for a question it cannot answer.
+
+    ⚠️ `exclude_nonce` IS LOAD-BEARING, and the full suite is what found it.
+    A session may beat presence at its declared name BEFORE its seat is
+    granted. Counting its own heartbeat as "someone is here" would refuse a
+    session its own address and push it to an ordinal — locking it out of the
+    name it is actively answering to. Presence is a nonce map, so the
+    claimant's own nonce is excluded and only a DIFFERENT live session parks
+    the name.
+
+    With no nonce to exclude, any fresh session parks the name. That is the
+    conservative reading and it is the right one: a claimant that cannot
+    identify itself cannot be told apart from a stranger, and §1 says hold.
+
+    Batched on purpose. The no-row branch is the COMMON case in allocation —
+    most candidates are free — so a per-candidate query would put a round trip
+    on the hot path. Bounded at MAX_SEAT_ORDINAL+1 keys, one indexed
+    `key = ANY(...)` lookup, once per allocation.
+
+    Measured 2026-08-23 against real data (41/26/3 presence rows, 64
+    candidates): median 0.10 ms, p95 0.135 ms. Honest cost note, correcting
+    the design's estimate: this is +1 query per allocation against today, not
+    a saving — today the no-row branch pays ZERO presence queries, which is
+    exactly why the hole existed.
+
+    A CLEAN RELEASE IS NOT LIVENESS. `released_at` stamped at or after the last
+    beat means the holder said it was done, so the name is genuinely free and
+    the next session gets the tight number (`seat_release`'s long-standing
+    promise). If the session kept beating AFTER the stamp, the beat wins and it
+    reads live again — correct, because something is demonstrably answering.
+    """
+    if not seats:
+        return set()
+    rows = await conn.fetch(
+        """
+        SELECT substr(key, 10) AS seat, last_used_at, metadata
+        FROM memories
+        WHERE namespace = $1 AND scope = $2 AND user_id = $3
+          AND key = ANY($4::text[])
+          AND last_used_at >= NOW() - make_interval(secs => $5)
+        """,
+        SEAT_NAMESPACE, PRESENCE_SCOPE, project,
+        [f"presence/{s}" for s in seats], SEAT_LIVE_SECONDS,
+    )
+    now = datetime.now(timezone.utc)
+    out: set[str] = set()
+    for r in rows:
+        md = r["metadata"]
+        if isinstance(md, str):
+            md = json.loads(md)
+        md = md or {}
+        released = md.get("released_at")
+        if released:
+            try:
+                if datetime.fromisoformat(released) >= r["last_used_at"]:
+                    continue          # said its own goodbye; name is free
+            except (TypeError, ValueError):
+                pass                  # unparseable stamp is not a release
+        sessions = md.get("sessions") or {}
+        if not sessions:
+            # Legacy row with no nonce map: fall back to row freshness, minus
+            # the claimant when we cannot tell them apart at all.
+            if exclude_nonce is None:
+                out.add(r["seat"])
+            continue
+        for nonce, info in sessions.items():
+            if exclude_nonce is not None and nonce == exclude_nonce:
+                continue              # that is the claimant itself
+            try:
+                seen = datetime.fromisoformat(info.get("last_seen"))
+            except (TypeError, ValueError):
+                continue
+            if (now - seen).total_seconds() < SEAT_LIVE_SECONDS:
+                out.add(r["seat"])
+                break
+    return out
 
 
 async def _try_insert(conn, seat: str, project: str, meta: dict) -> bool:
@@ -876,7 +998,14 @@ async def seat_claim(
         # false minutes before this shipped). One fetch per allocation, not
         # per candidate.
         known_roots = await _fetch_known_roots(conn)
-        for seat in seat_candidates(project, provider, preferred):
+        # ALLOC-LIVENESS-1: hoisted and batched, like known_roots above —
+        # one query per allocation, not one per candidate. Materialised
+        # because the generator is bounded (MAX_SEAT_ORDINAL+1) and the
+        # lookup is a single indexed `key = ANY(...)`.
+        candidates = list(seat_candidates(project, provider, preferred))
+        breathing = await _breathing_at(conn, candidates, project,
+                                        exclude_nonce=session_nonce)
+        for seat in candidates:
             # LANE-1 + Step 9: reserved lane AND root strings are never
             # minted as occupant seats — skip before BOTH the insert and the
             # takeover branch (a takeover would re-mint a not-yet-drained
@@ -932,7 +1061,19 @@ async def seat_claim(
                 root=False, lane=False, age=age, holds_mail=holds_mail,
                 presence_fresh=presence_fresh,
                 last_used_at=row["last_used_at"] if row is not None else None,
+                live_at_address=(seat in breathing),
             )
+            if d["reason"] == "live-no-row":
+                # A wrong release just proved itself. Loud by design: this
+                # can only happen when something inferred a death that had
+                # not occurred, and the whole point of a distinct reason is
+                # that someone can find out which release did it.
+                logger.warning(
+                    "live-no-row: %s has no seat row but is still "
+                    "heartbeating (project=%s). A release inferred a death "
+                    "that had not happened; the name was NOT reallocated.",
+                    seat, project,
+                )
             if d["would_skip"]:
                 if seat == distinct_preferred:
                     parked_reason = _PARKED_REASON_TEXT.get(
@@ -1247,14 +1388,76 @@ async def _apply_lane_inheritance(conn, seat: str, project: str,
     )
 
 
-async def seat_release(session_key: str, project: str) -> str | None:
+#: How certain the CALLER is that the session is dead. Only the caller knows,
+#: which is why this is a parameter rather than something the store infers.
+#: performed — I stopped it, or the session is releasing its own seat.
+#: observed — I watched it exit (a death certificate, a farewell).
+#: inferred — I deduced it from an absence, and an absence can be a lookup in
+#:            the wrong place. `a570ace` looked for a remote session's
+#:            conversation on the HUB's disk, never found it, and concluded
+#:            death for every healthy remote session.
+RELEASE_EVIDENCE = ("performed", "observed", "inferred")
+
+
+async def seat_release(session_key: str, project: str,
+                       evidence: str | None = None) -> str | None:
     """Release this session's seat. Returns the freed seat, or None.
 
     The clean path, always preferable to waiting out the grace period: an
     explicit release returns the ordinal immediately so the next session gets a
     tight number instead of the next one up.
+
+    ALLOC-LIVENESS-1 — WHY EVIDENCE IS TYPED. Deleting the row drops every
+    liveness rung of the allocation ladder (see `allocation_decision`), so
+    the ladder needs to know whether this deletion was CERTAIN. Only the
+    caller can say: the store sees an identical DELETE either way.
+
+    · performed/observed → stamp `released_at` on the presence row. The name
+      is genuinely free and the next session gets the tight number, exactly
+      as this docstring has always promised.
+    · inferred → free the row but DO NOT stamp, so `live-no-row` still
+      catches it if something is in fact breathing at that address.
+
+    The first draft of this stamped UNCONDITIONALLY, which was worse than
+    doing nothing: every release goes through this one function, so the
+    wrongful ones would have stamped too and `live-no-row` could never have
+    fired — a rung that exists and is unreachable. Caught in review by
+    projepsilon-claude-3 before it was written.
+
+    STAMP, NEVER DELETE the presence row: `farewell_at` lives in its
+    metadata, and that is the one death signal that was OBSERVED rather than
+    inferred. Deleting the row to free the name would destroy the evidence
+    FAREWELL/EXIT-NOTICE exist to record.
+
+    ⚠️ DEFAULT IS `performed`, and that is a deliberate compatibility choice
+    rather than an opinion about certainty. Every caller today releases with
+    no evidence field and expects a name freed instantly; defaulting to
+    `inferred` would refuse the next claimant for the whole presence window
+    and bump an ordinal on every clean restart — manufacturing the churn
+    this work exists to remove. So an un-migrated caller keeps EXACTLY
+    today's behaviour, and the new guard engages when a caller declares the
+    one thing only it knows. Absent evidence is logged, so the migration is
+    visible rather than assumed complete.
     """
     project = (project or "").strip().lower()
+    declared = (evidence or "").strip().lower() or None
+    if declared is None:
+        logger.info(
+            "seat_release: no evidence declared for %s (project=%s) — "
+            "treating as `performed`. A caller that INFERRED the death from "
+            "an absence should pass evidence='inferred' so a live session's "
+            "address stays guarded.", session_key, project,
+        )
+    elif declared not in RELEASE_EVIDENCE:
+        # Warn, never reject (SEC-7 posture): a bad value must not fail a
+        # shutdown path. Treat it as the conservative reading.
+        logger.warning(
+            "seat_release: unknown evidence %r for %s — treating as "
+            "`inferred` (the guarded reading)", declared, session_key,
+        )
+        declared = "inferred"
+    certain = declared != "inferred"
+
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -1266,6 +1469,19 @@ async def seat_release(session_key: str, project: str) -> str | None:
             """,
             SEAT_NAMESPACE, SEAT_SCOPE, SEAT_USER_ID, project, session_key,
         )
+        if row is not None and certain:
+            seat = row["key"].removeprefix("seat/")
+            await conn.execute(
+                """
+                UPDATE memories
+                   SET metadata = jsonb_set(
+                           COALESCE(metadata, '{}'::jsonb),
+                           '{released_at}', to_jsonb(NOW()::text))
+                 WHERE namespace = $1 AND scope = $2 AND user_id = $3
+                   AND key = $4
+                """,
+                SEAT_NAMESPACE, PRESENCE_SCOPE, project, f"presence/{seat}",
+            )
     return row["key"].removeprefix("seat/") if row else None
 
 
@@ -1565,6 +1781,18 @@ async def address_register(project: str | None = None) -> list[dict]:
         # function seat_claim consults — so the register and the allocator
         # can no longer drift. This wrapper only maps the register's
         # batch-read columns onto the decision's facts.
+        #
+        # ALLOC-LIVENESS-1: `live_at_address` is deliberately NOT threaded
+        # here, and that is reasoned rather than forgotten. The new rung sits
+        # on the no-row branch BELOW `holds_mail`, so it is reachable only
+        # for a name with no seat row AND no open mail — and the register
+        # renders exactly two populations: seat rows (which always have a
+        # row, so `age` is never None) and mail-only names (which exist
+        # BECAUSE they hold mail, so they park one rung earlier). A name with
+        # neither appears on this surface at all, so there is no entry whose
+        # verdict could disagree with the allocator's. If the register ever
+        # grows a third population, thread it — the drift ADDR-REG-1 exists
+        # to prevent would become reachable that same day.
         return allocation_decision(
             root=root, lane=lane, age=age, holds_mail=bool(mail_n),
             presence_fresh=(presence_age is not None

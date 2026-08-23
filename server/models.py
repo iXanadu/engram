@@ -1235,6 +1235,21 @@ class SeatClaimResponse(BaseModel):
 class SeatReleaseRequest(BaseModel):
     session_key: str = Field(max_length=MAX_ADDR)
     project: str = Field(max_length=MAX_ADDR)
+    # ALLOC-LIVENESS-1: how certain the CALLER is that this session is dead.
+    # performed | observed | inferred. Only the caller knows — the store sees
+    # an identical DELETE either way — and it decides whether the freed name
+    # keeps a liveness guard behind it.
+    #
+    # `inferred` means "I deduced the death from an absence", and an absence
+    # can be a lookup in the wrong place: the case that earned this field
+    # searched for a REMOTE session's conversation on the HUB's disk, never
+    # found it, and concluded death for every healthy remote session.
+    #
+    # Additive with a default (WIRE-1): omitting it keeps EXACTLY today's
+    # behaviour, so no shipped client changes meaning. Absent is logged, not
+    # assumed correct — see seat_release for why the default is the
+    # permissive reading rather than the safe-sounding one.
+    evidence: str | None = Field(default=None, max_length=32)
 
     @field_validator("session_key", "project", mode="before")
     @classmethod

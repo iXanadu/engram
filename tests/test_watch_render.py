@@ -172,6 +172,7 @@ async def test_address_register_carries_the_same_fact(services):
         await seat_claim(
             project=PROJECT, provider="cursor",
             session_key=f"cursor-{PROJECT}-1", preferred_seat=BEATER,
+            session_nonce="n1",
         )
         entries = await address_register(project=PROJECT)
         rows = [e for e in entries if e["address"] == BEATER]
@@ -337,9 +338,13 @@ async def test_register_makes_one_watch_query_not_one_per_seat(services, monkeyp
         for i in range(3):
             seat = f"{PROJECT}-cursor-{i}"
             await _beating_seat(seat)
+            # Same nonce presence beats under: a real session is ONE
+            # session, and ALLOC-LIVENESS-1 parks a name only when a
+            # DIFFERENT live nonce is answering there.
             await seat_claim(
                 project=PROJECT, provider="cursor",
                 session_key=f"cursor-{PROJECT}-{i}", preferred_seat=seat,
+                session_nonce="n1",
             )
         real_pool = await get_pool()
         counter = _instrument(monkeypatch, real_pool)
