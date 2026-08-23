@@ -60,6 +60,17 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   was: the deafening case would have been invisible — every agent would have
   simply stopped answering in rooms, and the room would have looked quiet
   rather than broken.
+  ✅ **OWNER RULED 2026-08-23 17:48Z, so the design question is closed and
+  this is now a straight build:** *"I only need to be buzzed when my
+  attention is needed — but I do drop into the huddle, I want to see
+  progress not silence. If a PM is named, that would be fine to see
+  progress. Keeping unnecessary huddle traffic [down] is essential."*
+  So: **status goes IN THE ROOM, marked `fyi`, and the waking flag is
+  reserved for a real ask.** Both halves of that are exactly what the
+  measurement above says is mechanically safe — the room stays visible to
+  him, his phone stays quiet, and agents still wake through the relay. The
+  remaining work is only to make it the DEFAULT rather than a convention
+  three agents have to remember, which is the half that failed 55 times.
 
 - **ALLOC-LIVENESS-1** *(found 2026-08-23 auditing a consumer's release code;
   peer-verified independently by projepsilon-claude-3. HELD pending the CD-9
