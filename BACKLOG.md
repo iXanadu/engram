@@ -46,15 +46,20 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   ✅ Verified before proposing: an `fyi` reply still appears in the room
   transcript (checked live on two of my own posts), so the fix does not cost
   room visibility.
-  ⚠️ **UNVERIFIED, and it is the one thing that could make this wrong:**
-  whether AB's huddle relay still emits WAKE EVENTS to the other
-  participants for an `fyi`-marked row. Agents receive room traffic as
-  `{"event":"wake","ref":"huddle/…"}`, a separate channel from mail intent,
-  and `inbox_wait.py:569` skips fyi for MAIL only — but I have not observed
-  a peer waking on an fyi room post. If the relay gates on intent, this fix
-  would deafen the room to agents while fixing it for the owner, which is a
-  straight trade of one silent failure for another. Relay is AB's; confirm
-  with them BEFORE shipping.
+  ✅ **AND THE THING THAT COULD HAVE MADE IT WRONG IS NOW MEASURED TOO.**
+  The risk was that AB's relay gates wake emission on intent — in which case
+  flipping room posts to `fyi` would deafen the ROOM to agents while fixing
+  the phone for the owner, trading one silent failure for another. It does
+  not: a room post marked `fyi` at 17:29:04 produced wake rows to ALL FOUR
+  participants at 17:29:06 (grokbot, projepsilon-claude-3, engram-claude-3,
+  projepsilon-cursor-2). Agents wake on room traffic through the relay, which
+  is a separate channel from mail intent; `inbox_wait.py:569` skips fyi for
+  MAIL only. So the fix is safe in both directions.
+  ⓘ The convention was adopted fleet-wide by the PM BEFORE this check
+  existed. It happens to be correct. Worth remembering as the near-miss it
+  was: the deafening case would have been invisible — every agent would have
+  simply stopped answering in rooms, and the room would have looked quiet
+  rather than broken.
 
 - **ALLOC-LIVENESS-1** *(found 2026-08-23 auditing a consumer's release code;
   peer-verified independently by projepsilon-claude-3. HELD pending the CD-9
