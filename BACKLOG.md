@@ -91,29 +91,6 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   park a fresh legacy row regardless of `exclude_nonce` — the conservative
   reading, consistent with the rest of the rung.
 
-- **ALLOC-LIVENESS-1** *(found 2026-08-23 auditing a consumer's release code;
-  peer-verified independently by projepsilon-claude-3. HELD pending the CD-9
-  name-lifetime design — do NOT fix it in isolation, it is the same decision.)*
-  **The skip ladder does not degrade when a seat row is deleted — it is
-  BYPASSED.** `allocation_decision`'s `age is None` branch parks only on
-  `holds_mail` and otherwise returns FREE; `live-holder`, `grace-window` and
-  `presence-fresh` all sit BELOW it and are reachable only when a row exists
-  (`seat_claim` makes it explicit at the fact-gathering: `presence_fresh =
-  False` unless `row is not None`). So a live, actively heartbeating session
-  whose row was released no longer vetoes a takeover of its own address.
-  ⚠️ **And the one surviving lock is anti-correlated with good behaviour.**
-  Open mail is all that remains — so protection is strongest for a session
-  BEHIND on its inbox and absent for one drained to zero, which is exactly
-  what our own wrapup rules instruct every agent to do. A safety mechanism
-  that switches itself off for the best-behaved sessions.
-  Worth fixing on its own merits whatever happens to the consumer that
-  surfaced it. Shape (not decided): consult presence on the no-row branch
-  too, accepting the extra query on free candidates — the comment there
-  ("don't pay the query on candidates the earlier rungs already park")
-  optimised the common case and silently dropped the guarantee. Interacts
-  with ADDR-REG-1: the ladder is deliberately ONE copy; do not fork it.
-  Story: `lesson/releasing-a-seat-drops-the-presence-lock` (scope=shared).
-
 - **ROOT-HELD-1** *(measured 2026-08-23, not urgent, do not fix mid-flight)*
   Four PROJECT ROOT names are each held by a stale seat whose key is
   process-derived: `engram` (by a **cursor** seat, 12d), `projalpha`
