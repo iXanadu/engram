@@ -189,62 +189,164 @@ async def test_address_register_carries_the_same_fact(services):
         await _cleanup()
 
 
+# ── the guard on the batching, and a guard on the guard ─────────────────────
+#
+# The first version of this counted `fetch` calls whose SQL text contained the
+# literal `watch/%`, with the pool swapped at memory_service.get_pool. Peer
+# audit (projepsilon-claude-3, 2026-08-23) killed it, correctly, and the three
+# holes are worth keeping written down because each one is invisible:
+#
+#   (a) The natural N+1 is `WHERE key = $1` with `watch/<seat>` passed as a
+#       PARAMETER — its SQL text never contains `watch/%`, so one batched
+#       query plus forty per-seat lookups still asserted len == 1 and passed.
+#   (b) Only `fetch` was wrapped. A single-row lookup is most naturally
+#       `fetchrow`/`fetchval`, which `__getattr__` passed straight through,
+#       uncounted.
+#   (c) `watch_claim` does its own `from server.db import get_pool`, a
+#       separate binding the patch never touched — so that path acquired a
+#       real, uninstrumented pool. Not merely uncounted queries: an uncounted
+#       POOL.
+#
+# So: count every method that takes a query string, match on the ARGS as well
+# as the SQL, and patch the accessor in every module that could route a watch
+# read. Then prove the instrument works by pointing it at a deliberate N+1 —
+# a guard nobody has watched fail is not a guard.
+
+import server.services.memory_service as _ms
+import server.services.session_registry as _sr
+import server.services.watch_claim as _wc
+from server.services.watch_claim import watch_status
+
+_QUERY_METHODS = ("fetch", "fetchrow", "fetchval", "fetchmany", "execute")
+
+
+def _is_watch_query(sql: str, args: tuple) -> bool:
+    """Does this call read the watch rows, in EITHER shape?
+
+    Batched: the SQL carries `scope = $2` with WATCH_SCOPE bound, and the
+    literal `watch/%`. Per-seat: the SQL is `key = $1` and the discriminator
+    is entirely in the ARGUMENT `watch/<seat>`. Matching only the first is
+    how the original test managed to be green against the very thing it
+    existed to forbid.
+    """
+    if "watch" in (sql or "").lower():
+        return True
+    return any(isinstance(a, str) and a.startswith("watch/") for a in args)
+
+
+class _Counter:
+    def __init__(self):
+        self.calls: list[tuple[str, tuple]] = []
+
+    @property
+    def n(self) -> int:
+        return len(self.calls)
+
+
+def _instrument(monkeypatch, real_pool) -> _Counter:
+    counter = _Counter()
+
+    class _Conn:
+        def __init__(self, inner):
+            self._inner = inner
+
+        def __getattr__(self, name):
+            inner_attr = getattr(self._inner, name)
+            if name not in _QUERY_METHODS:
+                return inner_attr
+
+            async def _wrapped(sql, *args, **kw):
+                if _is_watch_query(sql, args):
+                    counter.calls.append((sql, args))
+                return await inner_attr(sql, *args, **kw)
+
+            return _wrapped
+
+    class _Acquire:
+        def __init__(self):
+            self._ctx = real_pool.acquire()
+
+        async def __aenter__(self):
+            return _Conn(await self._ctx.__aenter__())
+
+        async def __aexit__(self, *a):
+            return await self._ctx.__aexit__(*a)
+
+    class _Pool:
+        def acquire(self, *a, **k):
+            return _Acquire()
+
+        def __getattr__(self, name):
+            return getattr(real_pool, name)
+
+    async def _fake_get_pool():
+        return _Pool()
+
+    # asyncpg's Pool.acquire is read-only, so the swap happens at the
+    # accessor — in EVERY module that binds its own reference to it.
+    for mod in (_ms, _sr, _wc):
+        monkeypatch.setattr(mod, "get_pool", _fake_get_pool)
+    return counter
+
+
 @pytest.mark.asyncio
-async def test_one_query_not_one_per_seat(services):
-    """The claim state is batched. A per-seat watch_status() call would turn
-    a 40-seat roster into 40 extra round trips on the surface agents hit at
-    every startup — the reason the register batches mail and deaths too."""
+async def test_the_counter_itself_catches_an_n_plus_1(services, monkeypatch):
+    """THE GUARD ON THE GUARD. Point the instrument at the exact
+    implementation the batching exists to forbid — watch_status() once per
+    seat — and confirm it SEES it. Without this, a silently-blind counter
+    makes the two tests below permanently green and permanently worthless,
+    which is precisely what the audit found."""
+    try:
+        seats = [f"{PROJECT}-cursor-{i}" for i in range(3)]
+        for s in seats:
+            await _beating_seat(s)
+        real_pool = await get_pool()
+        counter = _instrument(monkeypatch, real_pool)
+        for s in seats:                       # the N+1, deliberately
+            await watch_status(s)
+        assert counter.n == 3, (
+            f"instrument is blind: saw {counter.n} watch reads across 3 "
+            f"per-seat watch_status() calls"
+        )
+    finally:
+        await _cleanup()
+
+
+@pytest.mark.asyncio
+async def test_roster_makes_one_watch_query_not_one_per_seat(services, monkeypatch):
     try:
         for i in range(3):
             await _beating_seat(f"{PROJECT}-cursor-{i}")
-        import server.services.memory_service as ms
-
         real_pool = await get_pool()
-        seen: list[str] = []
+        counter = _instrument(monkeypatch, real_pool)
+        await roster_list(project=PROJECT, include_done=True)
+        assert counter.n == 1, (
+            f"expected ONE batched watch read for 3 seats, saw {counter.n}: "
+            f"{[c[0][:80] for c in counter.calls]}"
+        )
+    finally:
+        await _cleanup()
 
-        class _CountingConn:
-            def __init__(self, inner):
-                self._inner = inner
 
-            async def fetch(self, q, *a):
-                seen.append(q)
-                return await self._inner.fetch(q, *a)
-
-            def __getattr__(self, n):
-                return getattr(self._inner, n)
-
-        class _Acquire:
-            def __init__(self):
-                self._ctx = real_pool.acquire()
-
-            async def __aenter__(self):
-                return _CountingConn(await self._ctx.__aenter__())
-
-            async def __aexit__(self, *a):
-                return await self._ctx.__aexit__(*a)
-
-        class _CountingPool:
-            def acquire(self, *a, **k):
-                return _Acquire()
-
-            def __getattr__(self, n):
-                return getattr(real_pool, n)
-
-        # asyncpg's Pool.acquire is read-only, so the swap has to happen one
-        # level up, at the accessor roster_list actually calls.
-        real_get_pool = ms.get_pool
-
-        async def _fake_get_pool():
-            return _CountingPool()
-
-        ms.get_pool = _fake_get_pool
-        try:
-            await roster_list(project=PROJECT, include_done=True)
-        finally:
-            ms.get_pool = real_get_pool
-        watch_queries = [q for q in seen if "watch/%" in q]
-        assert len(watch_queries) == 1, (
-            f"expected ONE batched watch query, saw {len(watch_queries)}"
+@pytest.mark.asyncio
+async def test_register_makes_one_watch_query_not_one_per_seat(services, monkeypatch):
+    """The register is hit less often than the roster but has the same shape,
+    and the two must not drift — the whole point of this change is that the
+    two surfaces stop disagreeing."""
+    try:
+        for i in range(3):
+            seat = f"{PROJECT}-cursor-{i}"
+            await _beating_seat(seat)
+            await seat_claim(
+                project=PROJECT, provider="cursor",
+                session_key=f"cursor-{PROJECT}-{i}", preferred_seat=seat,
+            )
+        real_pool = await get_pool()
+        counter = _instrument(monkeypatch, real_pool)
+        await address_register(project=PROJECT)
+        assert counter.n == 1, (
+            f"expected ONE batched watch read, saw {counter.n}: "
+            f"{[c[0][:80] for c in counter.calls]}"
         )
     finally:
         await _cleanup()
