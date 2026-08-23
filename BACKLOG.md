@@ -72,6 +72,30 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   remaining work is only to make it the DEFAULT rather than a convention
   three agents have to remember, which is the half that failed 55 times.
 
+- **WAKE-POINTS-AT-EMPTY-BOX-1** *(2026-08-23, cross-system; the defect that
+  actually stopped the owner working. AB owns the fix. This entry exists to
+  stop someone fixing it on OUR side by undoing a deliberate design.)*
+  A hub-woken Cursor seat is told *"new mail arrived — read your inbox"*.
+  Room traffic is **letters-off by design**: a huddle records every utterance
+  in its TRANSCRIPT and announces by WAKES, writing **no inbox rows at all**.
+  So the seat wakes, reads an empty mailbox, correctly concludes there is
+  nothing to do, and stops. Proven from both ends the same minute: hub wakes
+  at 19:05:23 / 19:06:08 / 19:09:56, and the seat's own window reading
+  *"No action needed. Empty inbox — no new mail. Nothing to act on."* six
+  times. It had posted to the room ONCE in three hours while answering every
+  DM within minutes — because DMs really are mail.
+  ⓘ **Same cause as the "expensive Cursor seat".** Every one of those wakes
+  spent a turn to discover nothing. The cost was never room chattiness; it
+  was waking a seat to look in an empty box.
+  ⛔ **DO NOT "FIX" THIS BY MAKING ROOM POSTS WRITE INBOX ROWS.** Letters-off
+  is deliberate (docs/messaging.md) — it is what stops a busy room duplicating
+  every utterance into every participant's mailbox, and the owner values the
+  broadcast that design enables. The correct fix is the WAKE PAYLOAD pointing
+  at the room (AB's `WAKE_TEXT`), not the store changing what a room is.
+  `class:the-surface-nobody-instrumented` — we measured its heartbeat,
+  watcher, process and mailbox; the answer was on its own screen the whole
+  time and nobody looked there.
+
 - **ALLOC-LIVENESS-2** *(found 2026-08-23 by CROSS-MODEL adversarial review —
   composer-2.5 via the Cursor seat, asked to break the change rather than
   confirm it. Exposure measured before deciding; NOT fixed, see below.)*
