@@ -48,17 +48,24 @@ import secrets
 from datetime import datetime, timezone
 
 from server.db import get_pool
-from server.services.memory_service import INBOX_NAMESPACE
+from server.services.memory_service import (
+    INBOX_NAMESPACE,
+    WATCH_EXPIRY_SECONDS as _WATCH_EXPIRY_SECONDS,
+    WATCH_SCOPE as _WATCH_SCOPE,
+    WATCH_USER_ID as _WATCH_USER_ID,
+)
 
 logger = logging.getLogger(__name__)
 
 WATCH_NAMESPACE = INBOX_NAMESPACE
-WATCH_SCOPE = "watch"
-WATCH_USER_ID = "global"
-
-# 3 missed ~45s beats. Reviewer-ratified bounds: floor 90 (a hung server
-# should not displace everyone), ceiling 180 (a human-noticeable silence).
-WATCH_EXPIRY_SECONDS = 150
+# WATCH-RENDER-1: these three now LIVE in memory_service (one layer below,
+# beside the seat/presence/death constants) because the roster has to read a
+# seat's claim state and cannot import this module without a cycle. Re-exported
+# here so every existing caller and import site is unchanged — one definition,
+# two names for it. Do not re-declare them here.
+WATCH_SCOPE = _WATCH_SCOPE
+WATCH_USER_ID = _WATCH_USER_ID
+WATCH_EXPIRY_SECONDS = _WATCH_EXPIRY_SECONDS
 
 # K2 / delivery-liveness: how long mail may sit unfetched by a BEATING
 # holder before that holder is displaceable. Generous on purpose — this

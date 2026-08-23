@@ -2189,6 +2189,8 @@ async def memory_roster(
     collisions = []
     deaf = []
     exited = []
+    # WATCH-RENDER-1: seats whose watcher beats but holds no live claim.
+    unowned = []
     for e in entries:
         stale = " ⚠️ STALE" if e.get("is_stale") else ""
         age = int(e.get("age_seconds") or 0)
@@ -2232,7 +2234,27 @@ async def memory_roster(
             ear = f" · watcher OBSERVED the session exit at {_short_ts(fa)}"
             exited.append(e["identity"])
         elif wa is True:
-            ear = " · watcher beat recently"
+            # WATCH-RENDER-1: a beat is not ownership. The retired
+            # arm-your-own watcher BEATS without ever claiming the seat's
+            # wake stream, and this line said "watcher beat recently" for it
+            # — indistinguishable from a genuinely covered seat. Measured
+            # 2026-08-23 on a live hub-spawned Cursor seat that read healthy
+            # HERE and `NOT COVERED` on its own status line at the same
+            # instant; two agents read the two surfaces and reached opposite
+            # conclusions inside twenty minutes. Still worded as what was
+            # seen, never as a verdict.
+            ws = (e.get("watch") or {}).get("state")
+            if ws == "covered":
+                ear = " · watcher beat recently, owns the wake stream"
+            elif ws is None:
+                # Pre-WATCH-RENDER-1 server: it cannot answer, so say so
+                # rather than implying either answer. Absent is not unheld.
+                ear = " · watcher beat recently"
+            else:
+                # unheld | expired — a beat with no live owner.
+                ear = (f" · watcher beat recently but NOBODY OWNS its wake "
+                       f"stream ({ws})")
+                unowned.append(e["identity"])
         elif wa is False:
             ear = " · watcher gone quiet"
             if not e.get("is_stale"):
@@ -2256,6 +2278,19 @@ async def memory_roster(
             f"report that the session is gone: a session can be doing real "
             f"work with a dead watcher. Unreachable is not the same as absent, "
             f"and neither is a death — ask whatever spawned it if you need one."
+        )
+    if unowned:
+        head += (
+            f"\n\n⚠️ BEATING BUT UNOWNED: {', '.join(unowned)} — a watcher is "
+            f"beating at these addresses, but none of them holds the seat's "
+            f"WAKE STREAM. Those are two different facts and only the second "
+            f"one means mail interrupts the session. Read this as \"do not "
+            f"trust the beat here\", NOT as \"the session is deaf\": such a "
+            f"session may still be reachable by another route (a host that "
+            f"drives its turns), and it is certainly still addressable — mail "
+            f"queues and is read on its next wake either way. The commonest "
+            f"cause is a watcher armed the retired way, which beats but never "
+            f"claims. Ask whatever spawned the session which route it has."
         )
     if exited:
         head += (

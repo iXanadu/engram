@@ -987,6 +987,29 @@ class PresenceUpdateRequest(BaseModel):
         return v
 
 
+class AddressWatch(BaseModel):
+    """WATCH-RENDER-1: does a watcher OWN this seat's wake stream?
+
+    A DIFFERENT FACT FROM ``watcher_alive``, and the register carried only
+    that one until 2026-08-23. A beat says "some watcher polled here". A
+    claim says "this seat's wake stream has an owner". The retired
+    arm-your-own watcher beats and never claims, so a seat nobody is
+    listening for rendered exactly like a covered one — measured that day on
+    a live hub-spawned Cursor seat, which read `watcher beat recently` here
+    and `NOT COVERED` on its own status line at the same instant. Two
+    surfaces, two confident answers, one of them wrong.
+
+    Three-valued, and the same three values ``watch_status`` serves:
+    covered = a holder beating inside the expiry window; expired = a holder
+    exists and has gone silent past it; unheld = no claim at all. ``unheld``
+    is NEVER a death verdict — a session can legitimately run unheld (the
+    store may have been unreachable when its watcher armed).
+    """
+    state: str  # covered | expired | unheld
+    armed_by: str | None = None   # bridge | ab | agent — provenance, not authority
+    last_beat: str | None = None
+
+
 class RosterEntry(BaseModel):
     identity: str
     project: str
@@ -1059,6 +1082,15 @@ class RosterEntry(BaseModel):
     # is_stale=False with watcher_alive=False: running, addressable, and deaf.
     watcher_alive: bool | None = None
     watcher_last_seen: datetime | None = None
+    # WATCH-RENDER-1: does a watcher OWN this seat's wake stream? A DIFFERENT
+    # fact from `watcher_alive` above, which reports one beat and nothing
+    # more — a watcher can beat forever without ever claiming, and the
+    # retired arm-your-own watcher does exactly that. Until 2026-08-23 this
+    # roster served only the beat, so a seat nobody was listening for read
+    # identically to a covered one. Additive per the WIRE-1 rule; None means
+    # a pre-WATCH-RENDER-1 server that cannot answer, which is not the same
+    # as `unheld` and must not be rendered as one.
+    watch: AddressWatch | None = None
 
 
 class RosterRequest(BaseModel):
@@ -1368,6 +1400,7 @@ class AddressEntry(BaseModel):
     age_seconds: float | None = None
     watcher_alive: bool | None = None
     watcher_last_seen: str | None = None
+    watch: AddressWatch | None = None
     farewell_at: str | None = None
     death_certified: bool = False
     death: AddressDeathEvidence | None = None

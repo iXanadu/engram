@@ -1681,6 +1681,16 @@ SEAT_USER_ID = "global"
 # and the roster read one constant without an import cycle (session_registry
 # imports from this module, never the reverse).
 DEATH_SCOPE = "death"
+# WATCH-RENDER-1: the watch-claim constants, moved down here for the SAME
+# reason as the two blocks above — the roster has to read a seat's claim
+# state, and watch_claim imports THIS module, so the reverse direction would
+# be circular. watch_claim re-exports them, so its own callers are unchanged
+# and there is still exactly one definition of each.
+WATCH_SCOPE = "watch"
+WATCH_USER_ID = "global"
+# 3 missed ~45s beats. Reviewer-ratified bounds: floor 90 (a hung server
+# should not displace everyone), ceiling 180 (a human-noticeable silence).
+WATCH_EXPIRY_SECONDS = 150
 PRESENCE_STALE_AFTER_SECONDS = 600  # 10 min without a heartbeat → stale
 
 # SEAT-4 retention horizon: a presence row silent this long is dropped from
@@ -2235,10 +2245,52 @@ async def roster_list(
         # one") — and until now the roster never read it. AB had been posting
         # certs for every stop; the list still said "running".
         death_by_seat = await _death_by_seat(conn, project)
+        # WATCH-RENDER-1 (2026-08-23): the watch CLAIM, batched like every
+        # other signal here. A BEAT and a CLAIM are two different facts and
+        # this roster carried only the first — so a seat whose wake stream
+        # nobody owns rendered identically to a covered one. The retired
+        # arm-your-own watcher beats without ever claiming, which is exactly
+        # that case: measured on a live hub-spawned Cursor seat that read
+        # "watcher beat recently" here while its own status line read NOT
+        # COVERED, at the same instant. Two surfaces, two confident answers,
+        # one wrong — and two agents reached opposite conclusions from them
+        # inside twenty minutes.
+        #
+        # Freshness uses watch_claim's own expiry constant so this can never
+        # drift from what watch_status() would say about the same seat.
+        watch_rows = await conn.fetch(
+            """
+            SELECT substr(key, 7) AS seat,
+                   metadata,
+                   (metadata->>'last_beat')::timestamptz
+                       >= NOW() - make_interval(secs => $4) AS fresh
+            FROM memories
+            WHERE namespace = $1 AND scope = $2 AND user_id = $3
+              AND key LIKE 'watch/%'
+            """,
+            PRESENCE_NAMESPACE, WATCH_SCOPE, WATCH_USER_ID,
+            WATCH_EXPIRY_SECONDS,
+        )
     superseded_by_ident = {
         r["key"].removeprefix("seat/"): _superseded_from_seat(r["metadata"])
         for r in seat_rows
     }
+    # Three-valued, same vocabulary watch_status serves: covered = a holder
+    # beating inside the window; expired = a holder that went silent past it;
+    # ABSENT = unheld, supplied at the point of use so "no row" and "stale
+    # row" stay distinguishable. `unheld` is never a death verdict — a
+    # session can legitimately run unheld (store unreachable at arm time).
+    watch_by_seat: dict[str, dict] = {}
+    for wr in watch_rows:
+        wmd = wr["metadata"]
+        if isinstance(wmd, str):
+            wmd = json.loads(wmd)
+        wmd = wmd or {}
+        watch_by_seat[wr["seat"]] = {
+            "state": "covered" if wr["fresh"] else "expired",
+            "armed_by": wmd.get("armed_by"),
+            "last_beat": wmd.get("last_beat"),
+        }
     now = datetime.now(timezone.utc)
     entries = []
     for r in rows:
@@ -2306,6 +2358,10 @@ async def roster_list(
             "hosts_seen": sorted({i.get("host") for i in fresh.values() if i.get("host")}) if fresh else [],
             "watcher_alive": watcher_alive,
             "watcher_last_seen": watcher_seen,
+            # WATCH-RENDER-1: whether a watcher OWNS this seat's wake stream,
+            # which `watcher_alive` does not say — it reports one beat, and a
+            # watcher can beat forever without ever claiming.
+            "watch": watch_by_seat.get(ident, {"state": "unheld"}),
             # A fact, served like every other: "a watcher observed this
             # session's process exit at T". Absent means no such observation
             # was ever made, which is NOT a claim that the session is alive.

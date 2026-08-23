@@ -49,6 +49,9 @@ from server.services.memory_service import (
     SEAT_EXEMPT_IDENTITIES,
     SEAT_SCOPE,
     SEAT_USER_ID,
+    WATCH_EXPIRY_SECONDS,
+    WATCH_SCOPE,
+    WATCH_USER_ID,
     _mark_handled,
     _row_to_inbox_message,
     _watcher_state,
@@ -1462,8 +1465,48 @@ async def address_register(project: str | None = None) -> list[dict]:
             """,
             SEAT_NAMESPACE, PROJECT_REGISTRY_SCOPE, SEAT_SCOPE,
         )
+        # WATCH-RENDER-1: the watch CLAIM, batched — one query for every
+        # seat, never watch_status() in a loop. A beat and a claim are two
+        # different facts and the register carried only the first: the old
+        # arm-your-own watcher BEATS without ever claiming, so a seat whose
+        # wake stream nobody owns rendered identically to a covered one.
+        # Measured 2026-08-23 on a live hub-spawned Cursor seat, which read
+        # `watcher beat recently` here and `NOT COVERED` on its own status
+        # line at the same instant. Freshness uses watch_claim's own expiry
+        # so this can never drift from what watch_status would say.
+        watch_rows = await conn.fetch(
+            """
+            SELECT substr(key, 7) AS seat,
+                   metadata,
+                   (metadata->>'last_beat')::timestamptz
+                       >= NOW() - make_interval(secs => $4) AS fresh
+            FROM memories
+            WHERE namespace = $1 AND scope = $2 AND user_id = $3
+              AND key LIKE 'watch/%'
+            """,
+            SEAT_NAMESPACE, WATCH_SCOPE, WATCH_USER_ID,
+            WATCH_EXPIRY_SECONDS,
+        )
 
     mail_by_addr = {r["user_id"]: int(r["n"]) for r in mail_rows}
+    # Same three-valued vocabulary watch_status serves, and the same meanings:
+    # covered = a live holder beating inside the window; expired = a holder
+    # exists and has gone silent; ABSENT here = unheld, which is NOT "dead"
+    # (a session may legitimately run unheld — the store can be unreachable at
+    # arm time). The renderer supplies "unheld" for a seat with no row rather
+    # than this dict inventing one, so a missing row and a stale row stay
+    # distinguishable at the only place that has to tell them apart.
+    watch_by_seat: dict[str, dict] = {}
+    for r in watch_rows:
+        wmd = r["metadata"]
+        if isinstance(wmd, str):
+            wmd = json.loads(wmd)
+        wmd = wmd or {}
+        watch_by_seat[r["seat"]] = {
+            "state": "covered" if r["fresh"] else "expired",
+            "armed_by": wmd.get("armed_by"),
+            "last_beat": wmd.get("last_beat"),
+        }
     person_names = {(r["name"] or "").strip().lower() for r in human_rows}
     known_roots = ({r["project"] for r in root_rows}
                    - SEAT_EXEMPT_IDENTITIES)
@@ -1610,6 +1653,11 @@ async def address_register(project: str | None = None) -> list[dict]:
             "watcher_last_seen": (
                 watcher_seen.isoformat() if watcher_seen else None
             ),
+            # WATCH-RENDER-1: does a watcher OWN this seat's wake stream —
+            # a different fact from `watcher_alive`, which only says one
+            # beat. Absent row = "unheld", supplied here rather than by the
+            # batch dict so the default lives in exactly one place.
+            "watch": watch_by_seat.get(seat, {"state": "unheld"}),
             "farewell_at": pmd.get("farewell_at"),
             "death_certified": bool(md.get("death_certified")),
             "death": death,

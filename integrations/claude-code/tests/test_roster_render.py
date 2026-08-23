@@ -125,3 +125,65 @@ async def test_death_without_certifier_still_renders(monkeypatch):
         _entry("proj-codex-1", death={"died_at": "2026-08-21T10:00:00Z"}),
     ])
     assert "EXITED — certified dead by spawner at 2026-08-21T10:00:00Z" in out
+
+
+# ── WATCH-RENDER-1 (2026-08-23): a beat is not ownership ────────────────────
+#
+# The four states above answer "did a watcher poll here". None of them
+# answers "does anyone OWN this seat's wake stream", and the retired
+# arm-your-own watcher beats without ever claiming — so a seat nobody was
+# listening for rendered exactly like a covered one. Measured on a live
+# hub-spawned Cursor seat that read "watcher beat recently" here while its
+# own status line read NOT COVERED, at the same instant.
+
+
+@pytest.mark.asyncio
+async def test_beat_with_a_live_claim_says_it_owns_the_stream(monkeypatch):
+    out = await _render(monkeypatch, [
+        _entry("proj-claude-1", watcher_alive=True,
+               watch={"state": "covered", "armed_by": "bridge"}),
+    ])
+    assert "owns the wake stream" in out
+    assert "NOBODY OWNS" not in out
+    assert "BEATING BUT UNOWNED" not in out
+
+
+@pytest.mark.asyncio
+async def test_beat_without_a_claim_is_flagged_not_reported_as_healthy(monkeypatch):
+    """THE CURSOR CASE — the whole reason this exists."""
+    out = await _render(monkeypatch, [
+        _entry("projepsilon-cursor-2", watcher_alive=True,
+               watch={"state": "unheld"}),
+    ])
+    assert "NOBODY OWNS its wake stream (unheld)" in out
+    assert "BEATING BUT UNOWNED: projepsilon-cursor-2" in out
+    # It is NOT a death verdict and must never read as one: such a session
+    # may still be driven by its host, and mail queues either way.
+    assert "EXITED" not in out
+    assert "ADDRESSABLE, NO WATCHER BEAT" not in out
+
+
+@pytest.mark.asyncio
+async def test_expired_claim_is_distinct_from_never_claimed(monkeypatch):
+    """`expired` (a holder went quiet) and `unheld` (none ever existed) are
+    different facts — collapsing them is the absence-vs-failure confusion."""
+    out = await _render(monkeypatch, [
+        _entry("proj-claude-1", watcher_alive=True,
+               watch={"state": "expired", "armed_by": "bridge"}),
+    ])
+    assert "NOBODY OWNS its wake stream (expired)" in out
+
+
+@pytest.mark.asyncio
+async def test_old_server_without_the_field_is_not_rendered_as_unheld(monkeypatch):
+    """WIRE-1 discipline in the other direction. A pre-WATCH-RENDER-1 server
+    serves no `watch` key at all. Absent means IT CANNOT ANSWER — rendering
+    that as "nobody owns it" would invent a fleet-wide false alarm on every
+    box that had not deployed yet, which is the same class of error this
+    change exists to remove."""
+    out = await _render(monkeypatch, [
+        _entry("proj-claude-1", watcher_alive=True),   # no `watch` key
+    ])
+    assert "watcher beat recently" in out
+    assert "NOBODY OWNS" not in out
+    assert "BEATING BUT UNOWNED" not in out
