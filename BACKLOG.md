@@ -72,6 +72,25 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   remaining work is only to make it the DEFAULT rather than a convention
   three agents have to remember, which is the half that failed 55 times.
 
+- **ALLOC-LIVENESS-2** *(found 2026-08-23 by CROSS-MODEL adversarial review —
+  composer-2.5 via the Cursor seat, asked to break the change rather than
+  confirm it. Exposure measured before deciding; NOT fixed, see below.)*
+  `_breathing_at` UNDER-protects one shape. When a presence row carries no
+  session/nonce map (the legacy shape) AND the claimant supplies a nonce, the
+  row is `continue`d rather than parked — so an address whose row is fresh at
+  the ROW level reads as free and can be handed to a stranger. That is the
+  mirror image of the false-refusal risk the rung was built for, and the pair
+  is not coherent: with no nonce to exclude we park it, with one we skip it.
+  ⓘ **EXPOSURE MEASURED, and it is why this is pinned rather than fixed:**
+  152 presence rows fleet-wide, 6 of the legacy shape, exactly **1** both
+  legacy and fresh — `presence/grokbot`, the phone relay, which does not
+  claim seats. Real hole, currently unreachable in practice.
+  ⛔ **Deliberately NOT fixed the day it was found**, though it is one line.
+  Every "small and obviously safe" change on 2026-08-23 caused the next
+  problem, and the owner had just called a halt. Fix shape when unfrozen:
+  park a fresh legacy row regardless of `exclude_nonce` — the conservative
+  reading, consistent with the rest of the rung.
+
 - **ALLOC-LIVENESS-1** *(found 2026-08-23 auditing a consumer's release code;
   peer-verified independently by projepsilon-claude-3. HELD pending the CD-9
   name-lifetime design — do NOT fix it in isolation, it is the same decision.)*
