@@ -280,3 +280,44 @@ async def test_a_different_live_nonce_still_parks_the_name(services):
         )
     finally:
         await _cleanup()
+
+
+@pytest.mark.asyncio
+async def test_absent_evidence_is_logged_loudly(services, caplog):
+    """The compatibility default is a deliberate trade, and peer audit's
+    condition for accepting it: make the gap GREPPABLE.
+
+    Defaulting to `performed` means an un-migrated caller's release carries no
+    liveness guard — which is the silent class of failure. A warning naming
+    the session is what turns "somewhere out there a caller is unguarded" into
+    something you can find, and it is the signal that says when the default
+    can finally be removed.
+    """
+    import logging
+    try:
+        granted = await seat_claim(project=PROJECT, provider="cursor",
+                                   session_key="cursor-quiet-1")
+        with caplog.at_level(logging.WARNING,
+                             logger="server.services.session_registry"):
+            await seat_release("cursor-quiet-1", PROJECT)     # no evidence
+        assert "seat_release_no_evidence" in caplog.text
+        assert "cursor-quiet-1" in caplog.text
+        assert granted["seat"]
+    finally:
+        await _cleanup()
+
+
+@pytest.mark.asyncio
+async def test_declared_evidence_is_not_nagged_about(services, caplog):
+    """A caller that HAS migrated must not be warned at it — otherwise the
+    signal drowns in the noise it was added to surface."""
+    import logging
+    try:
+        await seat_claim(project=PROJECT, provider="cursor",
+                         session_key="cursor-loud-1")
+        with caplog.at_level(logging.WARNING,
+                             logger="server.services.session_registry"):
+            await seat_release("cursor-loud-1", PROJECT, evidence="performed")
+        assert "seat_release_no_evidence" not in caplog.text
+    finally:
+        await _cleanup()

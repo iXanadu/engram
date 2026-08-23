@@ -1442,11 +1442,17 @@ async def seat_release(session_key: str, project: str,
     project = (project or "").strip().lower()
     declared = (evidence or "").strip().lower() or None
     if declared is None:
-        logger.info(
-            "seat_release: no evidence declared for %s (project=%s) — "
-            "treating as `performed`. A caller that INFERRED the death from "
-            "an absence should pass evidence='inferred' so a live session's "
-            "address stays guarded.", session_key, project,
+        # WARNING, not info (peer audit, 2026-08-23). The compatibility
+        # default puts "an un-migrated caller is unguarded" in the SILENT
+        # class, which is the class this fleet keeps losing to. Logging it
+        # loudly makes the gap greppable, and is the signal that says when
+        # the default can finally be removed.
+        logger.warning(
+            "seat_release_no_evidence: %s (project=%s) released with no "
+            "stated evidence — defaulting to `performed`, so the freed name "
+            "carries NO liveness guard. A caller that INFERRED the death "
+            "from an absence must pass evidence='inferred'.",
+            session_key, project,
         )
     elif declared not in RELEASE_EVIDENCE:
         # Warn, never reject (SEC-7 posture): a bad value must not fail a
