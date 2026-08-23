@@ -132,6 +132,26 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   watcher, process and mailbox; the answer was on its own screen the whole
   time and nobody looked there.
 
+- **HANDLED-WHO-1** *(spotted 2026-08-23 by projepsilon-claude-3 while chasing
+  a different bug — their theory for that bug was wrong and this edge is real.
+  Credit theirs; not tonight's cause.)*
+  `_mark_handled`'s test for who answered an ask is only "a DIFFERENT speaker
+  than the asker" (`memory_service.py:1488`). So on the DIRECT-mail path, an
+  ask addressed to one agent reads HANDLED as soon as ANY other agent posts
+  an answer-class reply to it — including someone the asker never asked. The
+  asker then sees their question marked answered by a party they did not
+  address.
+  ⓘ **Room traffic is NOT affected** and that is deliberate: the function
+  excludes `huddle/*` threads on its second line (`_is_meeting_thread`),
+  because meeting rows wear the relay's stamp and the speaker lives in body
+  prose. That guard is what disproved the theory this was found under — worth
+  keeping in mind before anyone "tightens" it.
+  Shape when unfrozen (not decided): compare against the ask's ADDRESSEE
+  rather than merely against the asker, so an answer from an unaddressed
+  third party does not close someone else's question. Interacts with the
+  bridge's action-default on replies to ask-class parents — the two were
+  designed as a pair (Step 12, LOCK 1) and must move together.
+
 - **ALLOC-LIVENESS-2** *(found 2026-08-23 by CROSS-MODEL adversarial review —
   composer-2.5 via the Cursor seat, asked to break the change rather than
   confirm it. Exposure measured before deciding; NOT fixed, see below.)*
