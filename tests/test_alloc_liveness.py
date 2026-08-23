@@ -321,3 +321,79 @@ async def test_declared_evidence_is_not_nagged_about(services, caplog):
         assert "seat_release_no_evidence" not in caplog.text
     finally:
         await _cleanup()
+
+
+# ── ADVERSARIAL PROBES (owner-requested hard review, 2026-08-23) ────────────
+#
+# These do NOT test that the feature works. They hunt for ways it breaks
+# EXISTING behaviour — the standing question being "does this break weeks of
+# prior work". The first is the one that mattered: it would have burned an
+# ordinal on every bridge restart across the fleet.
+
+@pytest.mark.asyncio
+async def test_bridge_restart_new_nonce_same_key_keeps_its_seat(services):
+    """THE ONE THAT WOULD BREAK WEEKS OF WORK.
+
+    A bridge restart mints a NEW session_nonce but keeps the SAME session_key.
+    Its presence row is fresh under the OLD nonce. If the new liveness rung
+    ran on that path, the session would look like 'a different live session is
+    breathing here' and be refused its own seat — every bridge restart on the
+    fleet would burn an ordinal.
+    """
+    try:
+        first = await seat_claim(project=PROJECT, provider="claude",
+                                 session_key="k-stable", session_nonce="nonce-A")
+        seat = first["seat"]
+        await presence_update(identity=seat, project=PROJECT, state="running",
+                              provider="claude", session_nonce="nonce-A", host="hosta")
+        again = await seat_claim(project=PROJECT, provider="claude",
+                                 session_key="k-stable", session_nonce="nonce-B")
+        assert again["seat"] == seat, (
+            f"bridge restart lost its seat: {seat} -> {again['seat']}"
+        )
+    finally:
+        await _cleanup()
+
+
+@pytest.mark.asyncio
+async def test_a_brand_new_project_still_allocates_its_base_name(services):
+    """No presence anywhere: the ordinary first-claim path must be untouched."""
+    try:
+        got = await seat_claim(project=PROJECT, provider="grok", session_key="k-fresh")
+        assert got["seat"] == f"{PROJECT}-grok", got
+    finally:
+        await _cleanup()
+
+
+@pytest.mark.asyncio
+async def test_second_session_still_gets_an_ordinal_not_a_refusal(services):
+    """Two live sessions in one project is NORMAL. The new rung must not turn
+    ordinary allocation into a failure."""
+    try:
+        a = await seat_claim(project=PROJECT, provider="claude", session_key="k-1",
+                             session_nonce="n1")
+        await presence_update(identity=a["seat"], project=PROJECT, state="running",
+                              provider="claude", session_nonce="n1", host="hosta")
+        b = await seat_claim(project=PROJECT, provider="claude", session_key="k-2",
+                             session_nonce="n2")
+        assert b["seat"] != a["seat"]
+        assert b["seat"].startswith(f"{PROJECT}-claude")
+    finally:
+        await _cleanup()
+
+
+@pytest.mark.asyncio
+async def test_release_then_immediate_reclaim_by_a_new_session(services):
+    """The clean-shutdown-then-successor path, which is the commonest real
+    sequence on the fleet: A exits gracefully, B starts seconds later."""
+    try:
+        a = await seat_claim(project=PROJECT, provider="claude", session_key="k-A",
+                             session_nonce="nA")
+        await presence_update(identity=a["seat"], project=PROJECT, state="running",
+                              provider="claude", session_nonce="nA", host="hosta")
+        await seat_release("k-A", PROJECT, evidence="performed")
+        b = await seat_claim(project=PROJECT, provider="claude", session_key="k-B",
+                             session_nonce="nB", preferred_seat=a["seat"])
+        assert b["seat"] == a["seat"], "successor did not get the tight number"
+    finally:
+        await _cleanup()
