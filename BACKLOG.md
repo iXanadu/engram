@@ -29,6 +29,26 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   lying about what the allocator would do. The register's own lane check
   shipped with the audit; the shared helper is the durable fix.
 
+- **ROOT-HELD-1** *(measured 2026-08-23, not urgent, do not fix mid-flight)*
+  Four PROJECT ROOT names are each held by a stale seat whose key is
+  process-derived: `engram` (by a **cursor** seat, 12d), `projalpha`
+  (claude, 2d), `projalpha-app` (codex, 11d), `codex-hostb` (codex, 8d).
+  Harmless TODAY — all four are `reserved-root`, so the allocator never
+  hands them out, and mail to the name still reaches whoever listens on it.
+  It matters when lane reservation flips on (gate (e) above), because the
+  register then records the root of each project as owned by a dead
+  process. `class:residue-that-becomes-load-bearing`. HOLD until the name-
+  lifetime design lands (Projepsilon `artifacts/`, projepsilon-claude-3) —
+  build against one design, not two. Census: `fix/name-rotation-is-general-
+  not-cursor-2026-08-23`.
+  ⓘ Same census, for whoever reaches for the rotation story: name rotation
+  from a process-derived key is GENERAL, not a Cursor defect — 24 of 82
+  addresses on record carry one (codex 14, claude 5, cursor 5, **grok 0**).
+  Every launcher that injects a stable key cured it; codex's landed
+  ~2026-08-19 and its 13-seat pileup stopped. The only place the mechanism
+  still lives is hand-launched sessions, where it has bitten once
+  (`codex-hostb`) with no ordinal climb behind it.
+
 ## Set aside — messaging / huddles / addressing (owner reopens by name)
 
 - **MAIL-1** ⏸ Hold reaffirmed 2026-08-13: "useless to me as is — and I can't
@@ -363,8 +383,24 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   (b) CODEX: daemon-scoped bridge is not 1:1 — shared bridge must claim one
   watch per seat it serves, or one-watch-per-seat is false on codex from
   day one. Named hole, not silent deferral.
-  (c) CURSOR: covered by NOTHING today — a spawn path ships in this arc or
-  this is the grok incident replayed for cursor.
+  (c) CURSOR: *(reworded 2026-08-23 — the old line said "covered by NOTHING
+  today", which was measurably wrong twice over. Kept as a lesson in the
+  class: a ledger line outlives the thing it described, and "nothing exists"
+  is the reading that ages worst.)* Cursor IS woken today, by the RETIRED
+  arm: the hub starts a `--follow --project-dir` watcher, which beats and
+  delivers but never CLAIMS. So a hub-spawned Cursor seat runs TWO watchers
+  — that one, plus its own bridge's `--claim` watcher, which blocks forever
+  waiting for a FIFO consumer nobody attaches — and the seat reads `unheld`
+  for its whole life. Measured on `projepsilon-cursor-2`, 2026-08-23; the
+  2026-08-20 archive shows the same arm waking a Projdelta Cursor seat 24
+  times across 12.5h. The remaining work is AB's: port cursor to the FIFO
+  reader (their `_arm_inbox_watcher` already reaches cursor by inheritance,
+  so it is a rewrite, not a new path). Story: `fix/cursor-wake-path-
+  diagnosis-2026-08-23` + `fix/cursor-wake-live-proof-2026-08-23`.
+  ⓘ The health-board half of this is CLOSED — WATCH-RENDER-1 shipped
+  2026-08-23 (`1ac9183`): the roster now distinguishes a watcher that beats
+  from one that OWNS the wake stream, so an unowned seat no longer renders
+  as covered. Story: `fix/watch-render-1-2026-08-23`.
   (d) AB armer retirement (their step 3) is PER-SEAT, only after that
   seat's matrix row — including the ordinal-seat-DM leg — passes. Gate is
   agreed with the reviewer; hold them to it.
