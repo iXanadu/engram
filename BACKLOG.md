@@ -543,6 +543,16 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Owner's drivable menu — store & ops (start when the owner names one)
 
+- **OWN-2** `memory_keys` prints the partition `user_id` as the row's writer,
+  but OWN-1 ownership is by PRINCIPAL — so a listing can read "written by
+  claude-code" on a row only `ixanadu` may write, and the correction is
+  refused 409 at the moment of the edit rather than being visible when the
+  reader decides what to do. Measured 2026-08-23 correcting a stale
+  `state/*` row. The 409 itself is good (it names the owner); the listing is
+  what misleads. Show the owning principal in `memory_keys` output — or say
+  plainly that the column is the partition, not the owner.
+  `class:absence-vs-failure`.
+
 - **MEM-9** `POST /memory/supersede` on a row that is ALREADY superseded
   answers 404 "no live row … within your readable namespaces" — the same text
   as a true miss. Measured 2026-08-22 18:30Z: two seats retried a supersede
