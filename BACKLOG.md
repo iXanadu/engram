@@ -29,6 +29,33 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   lying about what the allocator would do. The register's own lane check
   shipped with the audit; the shared helper is the durable fix.
 
+- **PAGE-INTENT-1** *(measured 2026-08-23; the owner reported the symptom
+  himself, which lifts the NO-SCAB hold on this one item — he named it.)*
+  **A room conversation pages the owner on every line.** Replying into a
+  huddle addresses the message to the room owner personally, and a
+  person-addressed reply defaults to a WAKING intent. Measured over three
+  hours: **55 of 57 messages sent to `ixanadu` were marked `action`** —
+  projepsilon-claude-3 19/19, projalpha-claude-9 19/19, engram-claude-3
+  16/17. Uniform across all three seats, so it is the default and not three
+  agents being careless. His words: *"I've returned here three or four times
+  after getting a DM that I had a question. I don't see where the question
+  is for me."* There never was one; there were fifty-five.
+  FIX SHAPE: a reply THREADED INTO A HUDDLE should default to `fyi`, the way
+  a `#channel` reply already does — a room post is conversation, not a
+  summons. Only a genuine question to the owner should wake him.
+  ✅ Verified before proposing: an `fyi` reply still appears in the room
+  transcript (checked live on two of my own posts), so the fix does not cost
+  room visibility.
+  ⚠️ **UNVERIFIED, and it is the one thing that could make this wrong:**
+  whether AB's huddle relay still emits WAKE EVENTS to the other
+  participants for an `fyi`-marked row. Agents receive room traffic as
+  `{"event":"wake","ref":"huddle/…"}`, a separate channel from mail intent,
+  and `inbox_wait.py:569` skips fyi for MAIL only — but I have not observed
+  a peer waking on an fyi room post. If the relay gates on intent, this fix
+  would deafen the room to agents while fixing it for the owner, which is a
+  straight trade of one silent failure for another. Relay is AB's; confirm
+  with them BEFORE shipping.
+
 - **ALLOC-LIVENESS-1** *(found 2026-08-23 auditing a consumer's release code;
   peer-verified independently by projepsilon-claude-3. HELD pending the CD-9
   name-lifetime design — do NOT fix it in isolation, it is the same decision.)*
