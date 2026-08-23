@@ -84,6 +84,14 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   generic prompt. A Claude seat reads the raw line and the content survives,
   which is the only reason Claude seats answer in rooms at all. The owner had
   been watching this on Grok-APP for four days.
+  ⓘ **THE DECISIVE MEASUREMENT, run 2026-08-23 19:21 against the live store.**
+  Counted since the room opened at 15:58Z: the room OWNER holds 126
+  huddle-threaded inbox rows; **every other participant holds exactly ONE —
+  the invitation — and nothing since.** In the same window the store
+  generated **660 wake rows**. So room traffic is mail for the owner and a
+  WAKE for everyone else, which is letters-off working as designed. Any
+  prompt telling a participant to "read your inbox" for room traffic is
+  pointed at a box that has been empty for three and a half hours.
   A hub-woken seat is told *"new mail arrived — read your inbox"*.
   Room traffic is **letters-off by design**: a huddle records every utterance
   in its TRANSCRIPT and announces by WAKES, writing **no inbox rows at all**.
