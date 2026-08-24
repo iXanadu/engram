@@ -535,24 +535,26 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   (b) CODEX: daemon-scoped bridge is not 1:1 — shared bridge must claim one
   watch per seat it serves, or one-watch-per-seat is false on codex from
   day one. Named hole, not silent deferral.
-  (c) CURSOR: *(reworded 2026-08-23 — the old line said "covered by NOTHING
-  today", which was measurably wrong twice over. Kept as a lesson in the
-  class: a ledger line outlives the thing it described, and "nothing exists"
-  is the reading that ages worst.)* Cursor IS woken today, by the RETIRED
-  arm: the hub starts a `--follow --project-dir` watcher, which beats and
-  delivers but never CLAIMS. So a hub-spawned Cursor seat runs TWO watchers
-  — that one, plus its own bridge's `--claim` watcher, which blocks forever
-  waiting for a FIFO consumer nobody attaches — and the seat reads `unheld`
-  for its whole life. Measured on `projepsilon-cursor-2`, 2026-08-23; the
-  2026-08-20 archive shows the same arm waking a Projdelta Cursor seat 24
-  times across 12.5h. The remaining work is AB's: port cursor to the FIFO
-  reader (their `_arm_inbox_watcher` already reaches cursor by inheritance,
-  so it is a rewrite, not a new path). Story: `fix/cursor-wake-path-
-  diagnosis-2026-08-23` + `fix/cursor-wake-live-proof-2026-08-23`.
-  ⓘ The health-board half of this is CLOSED — WATCH-RENDER-1 shipped
-  2026-08-23 (`1ac9183`): the roster now distinguishes a watcher that beats
-  from one that OWNS the wake stream, so an unowned seat no longer renders
-  as covered. Story: `fix/watch-render-1-2026-08-23`.
+  (c) CURSOR: *(reworded THREE times in 24h — 2026-08-23 twice, 2026-08-24
+  once. That churn IS the lesson: this line has described a moving target and
+  each rewrite was overtaken within hours. State what is MEASURED and when.)*
+  **Measured 2026-08-24 13:25Z, live:** the room-blindness half is FIXED (AB
+  `49c8fd2`/`2d90124`/`0a3f26c` + `dc4268b` — a woken seat now gets the room's
+  words and a read pointer instead of "check your inbox"), and Cursor answers
+  in a room, proven twice. **The MIGRATION was never done and the duplicate is
+  still live:** `projepsilon-cursor-2` runs the hub's legacy
+  `engram-inbox-wait --follow --project-dir` arm AND its own bridge's
+  `--claim` watcher, the claiming one still has no FIFO consumer, and the seat
+  still reads `watch = unheld`. Two watchers, one seat, today.
+  ⚠️ Do NOT read "room fix shipped" as "cursor watcher migrated" — they are
+  different jobs and only the first is done. AB's, and the PM said so plainly
+  when they found the duplicate while measuring something else.
+  ⓘ The health-board half is CLOSED — WATCH-RENDER-1 (`1ac9183`): the roster
+  now distinguishes a watcher that beats from one that OWNS the wake stream,
+  which is why the `unheld` above is visible at all rather than reading as
+  healthy. Story: `fix/cursor-roomblind-verified-2026-08-23` and
+  `fix/cursor-wake-path-diagnosis-2026-08-23` (the latter rewritten
+  2026-08-24 — its original prescriptions all shipped).
   (d) AB armer retirement (their step 3) is PER-SEAT, only after that
   seat's matrix row — including the ordinal-seat-DM leg — passes. Gate is
   agreed with the reviewer; hold them to it.
