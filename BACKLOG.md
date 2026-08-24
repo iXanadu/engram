@@ -13,6 +13,14 @@
 > also start only when the owner names them ("let me drive"). Context:
 > `decision/no-scab-rule-2026-07-28` in project memory.
 
+> **⛔ FREEZE ON TOP OF THAT (owner, 2026-08-23 18:09Z, NOT lifted as of
+> 2026-08-24).** After an afternoon where each messaging fix produced the next
+> symptom, the owner froze engram-side messaging/huddle work outright. This is
+> STRICTER than no-scab: it also covers items he had already named, including
+> PAGE-INTENT-1. Everything that shipped that evening was Projalpha's tree,
+> not ours — do NOT read "comms are working now" as "the freeze ended". Only
+> the owner lifts it, by name.
+
 ## Immortal addresses — engram half SHIPPED (2026-08-15, production-proven)
 
 Design of record: `docs/design/immortal-addresses.md` v3+; build story in
@@ -71,6 +79,9 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   him, his phone stays quiet, and agents still wake through the relay. The
   remaining work is only to make it the DEFAULT rather than a convention
   three agents have to remember, which is the half that failed 55 times.
+  ⛔ **FROZEN 2026-08-23 18:09Z, after the ruling above.** The design is
+  settled and the build is NOT authorised. Do not pull this when idle — the
+  freeze is newer than the ruling that unblocked it.
 
 - **WAKE-POINTS-AT-EMPTY-BOX-1** *(2026-08-23, cross-system; the defect that
   actually stopped the owner working. AB owns the fix. This entry exists to
