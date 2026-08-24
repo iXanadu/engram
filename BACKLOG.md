@@ -214,6 +214,34 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Set aside — messaging / huddles / addressing (owner reopens by name)
 
+- **SEAT-CLAIM-READ-GATE-1** *(found 2026-08-24 while provisioning a
+  read-only chat-surface principal; owner spotted the collision risk before
+  it shipped.)* `class:one-of-a-family-fixed-one-at-a-time`
+  **A read-only principal cannot claim a seat, so it never gets an allocated
+  address.** `/session/claim` gates on WRITE (`check_namespace_access(...,
+  SEAT_NAMESPACE, "write")`, `SEAT_NAMESPACE = INBOX_NAMESPACE = fleet`),
+  measured: a principal with `write=[]` gets
+  `403 lacks write access to namespace 'fleet'`. The bridge degrades rather
+  than failing (`_claim_seat` is "FAILURE IS NON-FATAL BY DESIGN"), so every
+  such session falls back to its locally-resolved name — and N concurrent
+  sessions collapse onto ONE fixed identity: same `reader_identity`, shared
+  ack state, mutual self-echo drop. That is the exact "two bodies, one seat"
+  failure seats exist to prevent, reachable only by the principals least able
+  to notice it.
+  FIX SHAPE: move the claim to the READ gate. This is the THIRD member of one
+  family, the other two already shipped on identical reasoning —
+  `/memory/send` write→read (2026-08-02) and `/memory/presence` write→read
+  (2026-08-16, "matching every other protocol verb — send/ack/resolve/wait
+  all write protocol rows under the read gate. Presence was the lone
+  write-gated outlier"). It was not the lone outlier; claim is the same class
+  and was missed. A seat is a protocol row ABOUT YOU, not shared knowledge
+  deposited in a namespace.
+  ⛔ FROZEN: addressing/seat code is inside the 2026-08-23 freeze. Do NOT
+  implement on your own reading — the owner lifts it by name.
+  WORKAROUND IN USE meanwhile: one distinct static identity per chat surface
+  (`claude-chat`, `claude-web-chat`, `grok-chat`). Kills cross-surface
+  collision; does NOT fix two concurrent sessions on one surface.
+
 - **MAIL-1** ⏸ Hold reaffirmed 2026-08-13: "useless to me as is — and I can't
   seem to articulate how it isn't helpful, and agents are reluctant to remove."
   The inarticulacy is itself the signal — do not propose fixes until the owner
