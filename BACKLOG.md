@@ -688,6 +688,50 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   makes PUBLIC-SURFACE-1 a guess rather than a measurement. Turning it on
   is small; decide retention deliberately, since the rows name principals.
 
+  ⬆️ **ESCALATED 2026-08-25 — a KEYSTONE now, not a cleanup.** In one session
+  it blocked three separate answers: whether an external agent polls its
+  inbox at all, what drove that inbox on a given day, and whether a proposed
+  receipt field would report truth. Three agents (engram, Projalpha,
+  Projbeta) each published a wrong conclusion that day and every one traced
+  to the same root — behaviour inferred from a store that records writes
+  only. It is already named above as the reason PUBLIC-SURFACE-1 is a guess.
+  **It is not messaging code, so the 2026-08-23 freeze does not cover it** —
+  making it the one high-value item startable without the owner lifting
+  anything. `class:absence-vs-failure` — no request log cannot distinguish
+  "nobody called" from "nobody recorded the call".
+
+- **ACK-BLIND-1** *(measured 2026-08-25.)* **`read_by`/`status` are not
+  evidence that mail went unread, and we treated them as if they were.**
+  A client that builds a reply itself — populating `in_reply_to` on an
+  ordinary send instead of calling the reply verb — never fires the ack
+  side-effect. Its inbox then reads `open, read_by: []` forever, including
+  for messages it answered within sixty seconds. Measured on a live external
+  participant: 56 replies over six days, 0 parents acked, against twelve
+  other seats acking 187/187, 156/156, 143/143 with no exceptions. The reply
+  verb is sound; the signal is simply absent for anyone not using it.
+  CONSEQUENCE, and why this is pinned rather than shrugged at: an address
+  with a live, responsive consumer is indistinguishable in the store from a
+  dead chair. Any feature reporting delivery health from ack state — a
+  `last_read_at` on the send receipt was proposed and withdrawn the same day
+  for exactly this — will confidently report "nothing is listening" about
+  something that is listening.
+  DECISION: either (a) make ack discipline an explicit client contract and
+  document it, or (b) stop deriving liveness from acks and derive it from
+  what the server observes directly — which needs OBS-REQLOG-1 FIRST. Do not
+  build (b)'s consumer before the log exists.
+  ⚠️ **BLAST RADIUS IS NOT ONE BOT — measured by Projalpha 2026-08-25.**
+  AB is itself a non-acking client BY DESIGN, and wrote this conclusion down
+  before this session: its web and app surfaces ack on an explicit tap,
+  never on view (`huddle_api.py:1100-1118`, the docstring explaining why the
+  huddle badge deliberately avoids read state). So an ack-derived liveness
+  field would misreport **the owner's own primary surfaces as dead while he
+  is actively reading them** — not an exotic client with a sloppy loop.
+  AB audited its own exposure the same day: read-state is derived in exactly
+  one place (`inbox_api.py:240`, self-consistent) and no sender-facing
+  delivery field exists anywhere in their tree, so nothing is live on it.
+  ⛔ Inside the 2026-08-23 messaging freeze. Pinned, NOT pulled.
+  `class:measurement-right-meaning-wrong`
+
 - **SEAT-13** *(terrain change 2026-08-20: watch-claim shipped — a
   bridge-owned watcher's claim expires ~150s after its beats stop and
   one-watch-per-seat is store-enforced; "dies WITH the bridge by lineage"
