@@ -2260,7 +2260,16 @@ async def memory_roster(
             if not e.get("is_stale"):
                 deaf.append(e["identity"])
         else:
-            ear = " · no watcher seen"
+            # ROSTER-BLIND-1: `watcher_alive is None` means NO BRIDGE-REGISTERED
+            # WATCHER HAS EVER BEATEN HERE — it does NOT mean nobody is
+            # listening. A client running its own poller against
+            # /memory/inbox/wait with its own token registers no claim and is
+            # invisible to this column. Measured 2026-08-25: an external agent
+            # with a supervised long-poll and a 5-minute dead-man restart was
+            # rendered "no watcher seen", and three sessions reasoned from that
+            # line to three wrong conclusions about a live address in one
+            # morning. Say what the column KNOWS, never what it infers.
+            ear = " · no bridge-registered watcher (external pollers invisible)"
         lines.append(
             f"  {e['identity']:<28} [{e.get('provider') or '?'}] "
             f"project={e['project']} last spoke {age}s ago{stale}{ear}{clash}"

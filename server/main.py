@@ -197,6 +197,14 @@ app.add_middleware(
     TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts_list()
 )
 
+# OBS-REQLOG-1: added LAST so it runs OUTERMOST — it must see the requests that
+# never reach a route (a rejected credential, a forged Host header), which an
+# inner middleware would never be handed. It reads request.state after
+# call_next returns, so being outermost costs no principal attribution.
+from server.request_logging import RequestLogMiddleware  # noqa: E402
+
+app.add_middleware(RequestLogMiddleware)
+
 app.include_router(memory.router)
 app.include_router(session.router)
 app.include_router(admin.router)

@@ -97,6 +97,28 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_principal ON audit_log (principal_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log (created_at);
+
+-- OBS-REQLOG-1: the request trail. Before this, nothing could answer "which
+-- credential called what, and when" for any surface, ever — which is why an
+-- identity question once had to be settled by hashing tokens, and why
+-- narrowing the public allowlist was a guess rather than a measurement.
+-- DELIBERATELY NOT RECORDED: request bodies, and query-string VALUES (the
+-- path is stored with its query stripped). The rows name principals, so
+-- retention is bounded (ENGRAM_REQUEST_LOG_RETENTION_DAYS, pruned by the
+-- existing cleanup loop) rather than kept forever.
+CREATE TABLE IF NOT EXISTS request_log (
+    id            BIGSERIAL PRIMARY KEY,
+    principal     TEXT,
+    auth_source   TEXT,
+    method        TEXT NOT NULL,
+    path          TEXT NOT NULL,
+    status        INTEGER NOT NULL,
+    duration_ms   INTEGER NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_request_log_created ON request_log (created_at);
+CREATE INDEX IF NOT EXISTS idx_request_log_principal ON request_log (principal, created_at);
+CREATE INDEX IF NOT EXISTS idx_request_log_path ON request_log (path, created_at);
 """
 
 # Migration: add namespace column to tables created before this column existed.

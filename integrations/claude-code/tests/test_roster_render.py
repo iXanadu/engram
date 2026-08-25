@@ -49,7 +49,17 @@ async def test_three_beat_states_render_as_observations(monkeypatch):
     ])
     assert "proj-claude-1" in out and "watcher beat recently" in out
     assert "proj-claude-2" in out and "watcher gone quiet" in out
-    assert "proj-claude-3" in out and "no watcher seen" in out
+    # ROSTER-BLIND-1: the None case must report what the column KNOWS — that
+    # no BRIDGE-REGISTERED watcher has beaten — never the verdict "nobody is
+    # listening". A client polling /memory/inbox/wait with its own token
+    # registers no claim and is invisible here; rendering that as "no watcher"
+    # sent three sessions to three wrong conclusions in one morning.
+    assert "proj-claude-3" in out
+    assert "no bridge-registered watcher" in out
+    assert "external pollers invisible" in out
+    # The old wording is a verdict the column cannot support. Guard against
+    # anyone restoring it.
+    assert "no watcher seen" not in out
     # a fresh-but-quiet seat gets the "no watcher beat" advisory; it is NOT
     # called dead (a busy agent and a dead one are both silent — MSG-8).
     assert "ADDRESSABLE, NO WATCHER BEAT: proj-claude-2" in out

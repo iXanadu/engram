@@ -59,6 +59,9 @@ class PrincipalAuthMiddleware(BaseHTTPMiddleware):
         if principal:
             request.state.principal = principal
             request.state.auth_source = "principal"
+            refused = self._refuse_admin_on_public(request, principal)
+            if refused is not None:
+                return refused
             return await call_next(request)
 
         return self._reject(request, "Invalid or inactive token.")
@@ -85,6 +88,9 @@ class PrincipalAuthMiddleware(BaseHTTPMiddleware):
         if principal:
             request.state.principal = principal
             request.state.auth_source = "principal"
+            refused = self._refuse_admin_on_public(request, principal)
+            if refused is not None:
+                return refused
             return await call_next(request)
 
         # Fall back to legacy ENGRAM_API_TOKEN comparison
@@ -96,6 +102,38 @@ class PrincipalAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         return self._reject(request, "Invalid API token.")
+
+    def _refuse_admin_on_public(self, request: Request, principal: dict | None):
+        """PUBLIC-SURFACE-2: an admin credential must not work from the open
+        internet, even though the edge already hides /admin.
+
+        check_namespace_access() short-circuits on is_admin by design, so an
+        admin token pasted into any externally-hosted surface would carry
+        unrestricted fleet-wide reach behind one bearer string. This is
+        defence-in-depth at the layer where the operator cannot see what holds
+        the token — not a response to a live incident.
+
+        The marker is a header the public edge sets. SAFE AGAINST FORGERY BY
+        CONSTRUCTION: presence of the header only ever REMOVES privilege, so a
+        client that forges it merely denies itself. That is also why the app
+        half can ship before the edge half — absent the header this is inert,
+        which is exactly today's behaviour.
+        """
+        if not principal or not principal.get("is_admin"):
+            return None
+        header = settings.public_proxy_header
+        if not header or not request.headers.get(header):
+            return None
+        client = request.client.host if request.client else "unknown"
+        logger.warning(
+            "ADMIN REFUSED ON PUBLIC SURFACE: principal=%s from %s on %s %s",
+            principal.get("name"), client, request.method, request.url.path,
+        )
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Admin credentials are not accepted on the "
+                               "public surface. Use a scoped principal."},
+        )
 
     def _warn_unauthed(self, request: Request, reason: str) -> None:
         client = request.client.host if request.client else "unknown"

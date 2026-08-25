@@ -129,6 +129,19 @@ class Settings(BaseSettings):
     warn_unauthed: bool = False
 
     # Expiration cleanup
+    # PUBLIC-SURFACE-2: header the internet-facing edge sets on proxied
+    # requests. When present, admin principals are refused (403). Presence
+    # only ever removes privilege, so forging it is self-denial, and the
+    # setting is inert until the edge actually sets the header.
+    public_proxy_header: str = "x-engram-public"
+
+    # OBS-REQLOG-1: request trail. On by default — the gap it closes is that
+    # nothing could answer "which credential called what, and when". Never
+    # records bodies or query-string values; retention bounded because the
+    # rows name principals.
+    request_log_enabled: bool = True
+    request_log_retention_days: int = 30
+
     cleanup_enabled: bool = True
     cleanup_interval_hours: int = 6
     cleanup_batch_size: int = 500

@@ -669,36 +669,11 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   "can remember where I parked" and "can address every agent on the
   estate" are one grant. Narrow it to what a chat surface actually uses.
   ⚠️ MEASURE FIRST, do not cut blind — a live client depends on that route
-  today, and the server currently logs NO requests at all (see
-  OBS-REQLOG-1), so real usage is unknown rather than small. Escalated from
+  today. **The request log SHIPPED 2026-08-25, so this is now measurable
+  rather than a guess: let it run, read which of the 19 endpoints are
+  actually called and by which principal, then cut to fit.** Escalated from
   cleanup to PREREQUISITE the moment a vendor-hosted surface is pointed at
   that route. Detail: `vuln/public-surface-1` (project memory, until shipped).
-
-- **PUBLIC-SURFACE-2** Admin principals are not refused on the
-  internet-facing route. The namespace check short-circuits for admins by
-  design, so an admin credential pasted into any externally-hosted surface
-  would carry unrestricted reach from outside — defence-in-depth is missing
-  at exactly the layer where the operator cannot see what holds the token.
-  Fix shape: refuse `is_admin` on that route. Detail: `vuln/public-surface-2`.
-
-- **OBS-REQLOG-1** The server records no request log — only warnings and
-  errors. Nothing can answer "which credential called what, and when", for
-  any surface, ever. This is what forced an identity question this session
-  to be settled by hashing tokens instead of reading a log, and it is what
-  makes PUBLIC-SURFACE-1 a guess rather than a measurement. Turning it on
-  is small; decide retention deliberately, since the rows name principals.
-
-  ⬆️ **ESCALATED 2026-08-25 — a KEYSTONE now, not a cleanup.** In one session
-  it blocked three separate answers: whether an external agent polls its
-  inbox at all, what drove that inbox on a given day, and whether a proposed
-  receipt field would report truth. Three agents (engram, Projalpha,
-  Projbeta) each published a wrong conclusion that day and every one traced
-  to the same root — behaviour inferred from a store that records writes
-  only. It is already named above as the reason PUBLIC-SURFACE-1 is a guess.
-  **It is not messaging code, so the 2026-08-23 freeze does not cover it** —
-  making it the one high-value item startable without the owner lifting
-  anything. `class:absence-vs-failure` — no request log cannot distinguish
-  "nobody called" from "nobody recorded the call".
 
 - **ACK-BLIND-1** *(measured 2026-08-25.)* **`read_by`/`status` are not
   evidence that mail went unread, and we treated them as if they were.**
@@ -759,7 +734,13 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   without asking our permission. Ordering discipline to carry with it (AB's,
   worth copying): fill an unknown, NEVER replace a known; `unknown` stays a
   first-class state that consumers render as unknown, never as dead.
-  ⛔ Inside the 2026-08-23 messaging freeze. Pinned, NOT pulled.
+  ✅ HONESTY HALF SHIPPED 2026-08-25: the column now reads "no
+  bridge-registered watcher (external pollers invisible)" instead of the
+  verdict "no watcher seen". Server semantics were already correct
+  (`watcher_alive` is three-valued and never coerces None to False) and are
+  untouched; both consumers confirmed they parse no strings first.
+  ⛔ REMAINING (the actual fix — derive from the open `/memory/inbox/wait`
+  connection) is inside the 2026-08-23 messaging freeze. Pinned, NOT pulled.
   `class:absence-vs-failure` · sibling of [[ACK-BLIND-1]]
 
 - **SEAT-13** *(terrain change 2026-08-20: watch-claim shipped — a
