@@ -732,6 +732,36 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   ⛔ Inside the 2026-08-23 messaging freeze. Pinned, NOT pulled.
   `class:measurement-right-meaning-wrong`
 
+- **ROSTER-BLIND-1** *(measured 2026-08-25 — the durable finding of that
+  day.)* **The roster reports "no watcher seen" about addresses that are
+  actively long-polling us.** It counts only bridge-registered watch-claims,
+  so any client running its own poller against `/memory/inbox/wait` with its
+  own token is invisible — reported as unwatched while it holds an open
+  connection we are serving. Confirmed by the client itself: a supervised
+  local watcher, 5-minute dead-man restart, and our roster called it
+  unwatched. Its own words: *"roster 'no watcher seen' is presence, not
+  delivery."*
+  COST, paid the same day: three agents (engram, Projalpha, Projbeta) each
+  reasoned from that line and each reached a wrong conclusion about a live
+  address. A proposed `recipient_watcher: covered|none|exited` on the send
+  receipt was designed on top of it and withdrawn — it would have told every
+  sender "nothing is listening" about the most reliably-listening address on
+  the fleet.
+  SAME ROOT, OPPOSITE SIGN, measured by Projalpha (`inbox_api.py:375-392`):
+  a killed seat reads perfectly healthy for `WATCHER_STALE_AFTER_SECONDS`
+  (300s) — session terminated 09:46:32Z, `intent=action` send at 09:47:04Z,
+  no warning. So the field is wrong in both directions, silently.
+  FIX SHAPE, reached independently from both sides and endorsed by AB:
+  stop deriving from what clients REGISTER and derive from what the server
+  directly OBSERVES — the open `/memory/inbox/wait` connection itself, which
+  is a fact we own rather than a claim anyone filed. Correct for external
+  pollers and bridge sessions alike, and for anything written in future
+  without asking our permission. Ordering discipline to carry with it (AB's,
+  worth copying): fill an unknown, NEVER replace a known; `unknown` stays a
+  first-class state that consumers render as unknown, never as dead.
+  ⛔ Inside the 2026-08-23 messaging freeze. Pinned, NOT pulled.
+  `class:absence-vs-failure` · sibling of [[ACK-BLIND-1]]
+
 - **SEAT-13** *(terrain change 2026-08-20: watch-claim shipped — a
   bridge-owned watcher's claim expires ~150s after its beats stop and
   one-watch-per-seat is store-enforced; "dies WITH the bridge by lineage"
