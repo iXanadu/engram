@@ -114,15 +114,26 @@ CREATE TABLE IF NOT EXISTS request_log (
     path          TEXT NOT NULL,
     status        INTEGER NOT NULL,
     duration_ms   INTEGER NOT NULL,
+    -- True when the request carried the public-edge tag (PUBLIC-SURFACE-2
+    -- header). Lets the trail separate internet traffic from tailnet/local —
+    -- the question PUBLIC-SURFACE-1 has to answer before the allowlist is cut.
+    via_public    BOOLEAN NOT NULL DEFAULT FALSE,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_request_log_created ON request_log (created_at);
+-- idx_request_log_public lives in MIGRATE_SQL: on an existing DB this block
+-- runs BEFORE the via_public column is added, and an index on a column that
+-- does not exist yet aborts the whole SCHEMA_SQL transaction. Same class as
+-- idx_principals_token_lookup above — the upgrade-ordering bug, repeated
+-- once (2026-08-25) and caught by the test DB before it reached prod.
 CREATE INDEX IF NOT EXISTS idx_request_log_principal ON request_log (principal, created_at);
 CREATE INDEX IF NOT EXISTS idx_request_log_path ON request_log (path, created_at);
 """
 
 # Migration: add namespace column to tables created before this column existed.
 MIGRATE_SQL = """
+ALTER TABLE request_log ADD COLUMN IF NOT EXISTS via_public BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_request_log_public ON request_log (via_public, created_at);
 DO $$
 BEGIN
     -- Add namespace column if missing

@@ -37,6 +37,7 @@ async def record_request(
     path: str,
     status: int,
     duration_ms: int,
+    via_public: bool = False,
 ) -> None:
     """Write one request row. Never raises — observability must not be able to
     fail a request that otherwise succeeded."""
@@ -46,10 +47,12 @@ async def record_request(
             await conn.execute(
                 """
                 INSERT INTO request_log
-                    (principal, auth_source, method, path, status, duration_ms)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                    (principal, auth_source, method, path, status, duration_ms,
+                     via_public)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 """,
                 principal, auth_source, method, path, status, duration_ms,
+                via_public,
             )
     except Exception:
         # Deliberately swallowed and logged, not re-raised. A failure to

@@ -57,6 +57,26 @@ class TestRecording:
         assert row["principal"] is None
         assert row["status"] == 401
 
+    async def test_records_the_public_edge_flag(self, db_pool):
+        """PUBLIC-SURFACE-1 has to know which requests came in from the
+        internet before the allowlist is cut. The flag is the same header
+        PUBLIC-SURFACE-2 keys on."""
+        await record_request(
+            principal="edge-caller", auth_source="principal",
+            method="POST", path="/memory/search", status=200, duration_ms=5,
+            via_public=True,
+        )
+        await record_request(
+            principal="edge-caller", auth_source="principal",
+            method="POST", path="/memory/search", status=200, duration_ms=5,
+        )
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT via_public FROM request_log WHERE principal='edge-caller' "
+                "ORDER BY id"
+            )
+        assert [r["via_public"] for r in rows][-2:] == [True, False]
+
     async def test_write_failure_never_raises(self, monkeypatch):
         """Observability must not be able to fail a request that succeeded."""
         async def boom():

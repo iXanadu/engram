@@ -48,4 +48,11 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
                 path=request.url.path,
                 status=status,
                 duration_ms=duration_ms,
+                # Same header PUBLIC-SURFACE-2 keys on. Set by the edge only,
+                # replaced (never merely appended) by proxy_set_header, so
+                # its presence means "came in from the internet".
+                via_public=bool(
+                    settings.public_proxy_header
+                    and request.headers.get(settings.public_proxy_header)
+                ),
             )
