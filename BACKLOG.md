@@ -692,8 +692,11 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   something that is listening.
   DECISION: either (a) make ack discipline an explicit client contract and
   document it, or (b) stop deriving liveness from acks and derive it from
-  what the server observes directly — which needs OBS-REQLOG-1 FIRST. Do not
-  build (b)'s consumer before the log exists.
+  what the server observes directly. **(b)'s prerequisite is now MET — the
+  request log shipped 2026-08-25** — so the blocker on (b) is no longer
+  missing data, it is the messaging freeze plus the open question of which
+  server-observed signal to use (the open `/memory/inbox/wait` connection is
+  the candidate; see [[ROSTER-BLIND-1]]).
   ⚠️ **BLAST RADIUS IS NOT ONE BOT — measured by Projalpha 2026-08-25.**
   AB is itself a non-acking client BY DESIGN, and wrote this conclusion down
   before this session: its web and app surfaces ack on an explicit tap,
