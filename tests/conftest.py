@@ -1,4 +1,12 @@
+import os
 import pathlib
+
+# The embedding model is pinned to a revision and loaded from the local HF
+# cache; the test suite must never reach the network for it. Without this, a
+# stale ~/.cache/huggingface/token turns every test that touches embeddings
+# into a HuggingFace 401 (measured 2026-08-25: 21 errors, zero code defects).
+# Prod already runs HF_HUB_OFFLINE=1 (launchd + systemd); the suite matches it.
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 import asyncpg
 import pytest_asyncio
