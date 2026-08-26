@@ -1,7 +1,11 @@
+import logging
+import re
 import asyncpg
 from pgvector.asyncpg import register_vector
 
 from server.config import settings
+
+logger = logging.getLogger(__name__)
 
 pool: asyncpg.Pool | None = None
 
@@ -236,9 +240,18 @@ BEGIN
 
     -- Owner backfill: rows from claude-code MCP traffic were previously owned
     -- by the 'claude-code' agent principal; the MCP bridge now authenticates
-    -- as 'owner'. Backfill old + NULL owners to owner (claude-code
-    -- namespace, non-inbox/user scopes only — don't touch ha or inbox).
-    UPDATE memories SET owner = 'owner'
+    -- as the deployment's owner principal. Backfill old + NULL owners to it
+    -- (claude-code namespace, non-inbox/user scopes only — don't touch ha or
+    -- inbox).
+    --
+    -- ⚠️ THIS NAME IS FUNCTIONAL, NOT COSMETIC. A 2026-08-26 public-repo
+    -- scrub rewrote this literal as if it were prose and pointed the backfill
+    -- at a principal that does not exist — which would have stamped ownership
+    -- of the legacy corpus to a non-existent owner and locked the real one out
+    -- behind the OWN-1 gate. Caught before deploy. It is fed from settings so
+    -- the tree carries no hardcoded identity and a rename cannot silently
+    -- corrupt ownership again.
+    UPDATE memories SET owner = '__OWNER_PRINCIPAL__'
     WHERE namespace = 'claude-code'
       AND scope IN ('shared', 'machine', 'project')
       AND (owner IS NULL OR owner = 'claude-code');
@@ -307,8 +320,43 @@ async def init_pool() -> asyncpg.Pool:
         # DBs, creates current shape on fresh ones). MIGRATE_SQL then alters
         # in place to handle upgrades from older schemas.
         await conn.execute(SCHEMA_SQL)
-        await conn.execute(MIGRATE_SQL)
+        await conn.execute(_render_migrate_sql())
     return pool
+
+
+def _render_migrate_sql() -> str:
+    """MIGRATE_SQL with the owner-backfill target resolved from settings.
+
+    The owner principal cannot be a bind parameter: MIGRATE_SQL is one
+    multi-statement block, executed whole. So it is substituted — and
+    VALIDATED first, because a name interpolated into SQL is an injection
+    site if it is ever attacker- or typo-shaped.
+
+    If no owner principal is configured, the backfill is REMOVED rather than
+    run with a guess. Stamping the legacy corpus with a wrong owner would lock
+    the real one out behind the OWN-1 gate, and only a restore would undo it —
+    exactly the damage a 2026-08-26 scrub nearly caused by rewriting the
+    literal as if it were prose. Doing nothing is recoverable; doing the wrong
+    thing is not.
+    """
+    name = (settings.owner_principal_name or "").strip()
+    if not name or not re.fullmatch(r"[A-Za-z0-9_.@-]{1,64}", name):
+        if name:
+            logger.warning(
+                "owner backfill SKIPPED: owner_principal_name %r is not a "
+                "plain principal name; refusing to interpolate it into SQL",
+                name,
+            )
+        else:
+            logger.info(
+                "owner backfill skipped: no owner_principal_name configured"
+            )
+        # Drop just the backfill statement, keep every other migration.
+        return re.sub(
+            r"\n\s*UPDATE memories SET owner = '__OWNER_PRINCIPAL__'.*?;",
+            "", MIGRATE_SQL, flags=re.DOTALL,
+        )
+    return MIGRATE_SQL.replace("__OWNER_PRINCIPAL__", name)
 
 
 async def _init_connection(conn: asyncpg.Connection) -> None:
