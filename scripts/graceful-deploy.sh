@@ -39,14 +39,61 @@ die() { printf '⛔ %s\n' "$*" >&2; exit 1; }
 # anyone was there" and "I decided it was worth it" are different, and only the
 # second is defensible after the fact.
 say "── live sessions ──"
-if command -v psql >/dev/null 2>&1; then
-    psql -d engram -t -A -F' · ' -c "
+# DEPLOY-6: this check spent its whole life printing "proceeding blind" on the
+# box we deploy FROM — there is no psql on hosta at all — so it never once
+# listed a session, while reading like coverage. The SQL was always right; the
+# tool was simply absent. It now falls back to the app's own driver (asyncpg is
+# in the server venv by definition; psycopg is not installed anywhere).
+# If it genuinely cannot look, it must say THAT — "nobody checked" and "nobody
+# is here" are opposite facts and only one of them is safe to deploy on.
+_ROSTER_SQL="
         SELECT key, round(EXTRACT(EPOCH FROM (NOW()-last_used_at)))||'s ago'
         FROM memories WHERE scope='presence'
           AND last_used_at > NOW() - interval '10 minutes'
-        ORDER BY last_used_at DESC;" 2>/dev/null | sed 's/^/  /' || say "  (roster unavailable)"
-else
-    say "  (psql not on PATH — cannot list; proceeding blind)"
+        ORDER BY last_used_at DESC;"
+LISTED=0
+if command -v psql >/dev/null 2>&1; then
+    if OUT="$(psql -d engram -t -A -F' · ' -c "$_ROSTER_SQL" 2>/dev/null)"; then
+        printf '%s\n' "$OUT" | sed 's/^/  /'
+        LISTED=1
+    fi
+fi
+if [[ $LISTED -eq 0 ]]; then
+    VENV_PY="$("$APP_DIR/scripts/resolve-venv-python.sh" engram-3.12 2>/dev/null || true)"
+    if [[ -n "${VENV_PY:-}" && -x "${VENV_PY:-/nonexistent}" ]]; then
+        # cd into APP_DIR: cwd decides which tree `server.config` resolves to.
+        if OUT="$(cd "$APP_DIR" && "$VENV_PY" - <<'PY' 2>/dev/null
+import asyncio, asyncpg
+from server.config import settings
+
+SQL = """SELECT key, round(EXTRACT(EPOCH FROM (NOW()-last_used_at)))||'s ago' AS age
+         FROM memories WHERE scope='presence'
+           AND last_used_at > NOW() - interval '10 minutes'
+         ORDER BY last_used_at DESC"""
+
+async def main():
+    conn = await asyncpg.connect(settings.dsn)
+    try:
+        for r in await conn.fetch(SQL):
+            print(f"{r['key']} \u00b7 {r['age']}")
+    finally:
+        await conn.close()
+
+asyncio.run(main())
+PY
+        )"; then
+            if [[ -n "$OUT" ]]; then
+                printf '%s\n' "$OUT" | sed 's/^/  /'
+            else
+                say "  none beating in the last 10 minutes"
+            fi
+            LISTED=1
+        fi
+    fi
+fi
+if [[ $LISTED -eq 0 ]]; then
+    say "  ⛔ COULD NOT LOOK — no psql, and the server venv would not answer."
+    say "     This is NOT 'nobody is here'. Nobody checked. Deploy accordingly."
 fi
 
 # --- 2. Rollback target, known BEFORE we move ---------------------------------

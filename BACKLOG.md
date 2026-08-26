@@ -456,15 +456,6 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   "diverged". CLASS: absence-vs-failure — a confident wrong diagnosis costs
   more than no diagnosis.
 
-- **DEPLOY-6** *(found 2026-08-26, same run.)* graceful-deploy's "live
-  sessions" pre-flight degrades to `(psql not on PATH — cannot list;
-  proceeding blind)` and proceeds anyway. There is no psql on hosta at all,
-  so this safety check has been inert on the box we deploy from — it never
-  once listed a live session. Either query through the app's own driver
-  (asyncpg is present; psycopg is not) or make the blindness loud enough to
-  stop a deploy. Same class as OBS-SESSION-1: the tool answers, and the answer
-  is that it did not look.
-
 - **GRANT-1** *(half (a) SHIPPED 2026-08-17 — parking a DISTINCTIVE
   preferred name is now loud on the claim's warning channel, naming the
   parked address, the reason, and the drain path; base-name preferences
