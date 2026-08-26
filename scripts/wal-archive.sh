@@ -24,7 +24,12 @@ set -u
 
 WAL_PATH="${1:?wal path (%p) required}"
 WAL_FILE="${2:?wal filename (%f) required}"
-ARCHIVE_DIR="/Users/dev/.local/state/fleetbackup/dumps/wal"
+# Derived from $HOME, never a hardcoded user: postgres runs as the owning
+# user, so this resolves correctly AND keeps a username out of a public
+# repo. A 2026-08-26 scrub rewrote this literal to a path that does not
+# exist and archiving failed silently for 9 WAL segments — pg_wal grows
+# until the volume fills. Override with ENGRAM_WAL_ARCHIVE_DIR.
+ARCHIVE_DIR="${ENGRAM_WAL_ARCHIVE_DIR:-$HOME/.local/state/fleetbackup/dumps/wal}"
 
 mkdir -p "$ARCHIVE_DIR" || exit 1
 

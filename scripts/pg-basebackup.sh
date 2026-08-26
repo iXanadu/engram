@@ -17,7 +17,7 @@
 set -u
 
 PG_BIN="${PG_BIN:-/opt/homebrew/opt/postgresql@17/bin}"
-DUMP_DIR="${DUMP_DIR:-/Users/dev/.local/state/fleetbackup/dumps}"
+DUMP_DIR="${DUMP_DIR:-$HOME/.local/state/fleetbackup/dumps}"
 BASE_DIR="$DUMP_DIR/base"
 WAL_DIR="$DUMP_DIR/wal"
 KEEP="${KEEP:-2}"
