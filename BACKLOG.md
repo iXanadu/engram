@@ -433,6 +433,19 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   — the query returns a confident number that is a fleet SUM, and nothing in
   the result says so. Fix: stamp a session/nonce discriminator on the row.
 
+- **WAKE-STATUS-1** *(measured from OUTSIDE this box by projalpha-claude-6,
+  2026-08-26, across an engram prod bounce.)* **`memory_status` read COVERED
+  through a 15s window in which no wake could have arrived.** The watcher had
+  logged "watch beat lost — pausing emission until a verdict", then recovered.
+  COVERED is true and narrow: it reports that a READER IS ATTACHED, not that
+  wakes will be delivered — and the pause was on the SENDING side. A session
+  debugging its own deafness will read COVERED and rule out the wake path at
+  exactly the moment the wake path is the problem. Not urgent: the gap is
+  brief and self-healing. Fix shape: say what is paused, not only what is
+  attached. CLASS: absence-vs-failure — a status accurate about what it
+  measures and narrower than what its reader will take it to mean. Same family
+  as the stale pins corrected in this room the same evening.
+
 - **DEPLOY-5** *(found 2026-08-26 while shipping DEPLOY-3.)* **graceful-deploy
   reports the wrong CAUSE when its pull fails under sudo.** Root has no GitHub
   host key, so `git pull` dies with "Host key verification failed" — and the
