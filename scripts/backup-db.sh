@@ -60,7 +60,7 @@ get_env () {
   #      that legitimately contains '#' (passwords do) survives intact;
   #   2. trim surrounding whitespace — this box's .env pads values with a long
   #      run of trailing spaces, which silently produced the role
-  #      "ixanadu                    " and a failed connection;
+  #      "owner                    " and a failed connection;
   #   3. unwrap matching quotes.
   sed -n "s/^[[:space:]]*$1[[:space:]]*=//p" "$ENV_FILE" | head -1 \
     | sed 's/[[:space:]][[:space:]]*#.*$//' \

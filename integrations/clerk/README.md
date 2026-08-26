@@ -39,12 +39,12 @@ needs real multi-model routing, that's the day to import a shared layer.
 | `ENGRAM_CLERK_TOKEN` | — (required) | engram principal token for the clerk |
 | `ENGRAM_CLERK_API_URL` | `http://localhost:8920` | engram server |
 | `ENGRAM_CLERK_ADDRESS` | `clerk` | inbox address it serves |
-| `ENGRAM_CLERK_OWNER_ADDRESS` | `ixanadu` | escalation target |
+| `ENGRAM_CLERK_OWNER_ADDRESS` | `owner` | escalation target |
 | `ENGRAM_CLERK_NAMESPACE` | `fleet` | namespace for shared stores |
 | `ENGRAM_CLERK_LLM_BASE_URL` | — (required) | OpenAI-compatible base, e.g. `https://api.x.ai/v1` |
 | `ENGRAM_CLERK_LLM_KEY` | — (required) | provider API key |
 | `ENGRAM_CLERK_LLM_MODEL` | — (required) | e.g. `grok-4-6` |
-| `ENGRAM_CLERK_TRUSTED_STORE_SENDERS` | `ixanadu` | csv of principals whose mail may trigger a store |
+| `ENGRAM_CLERK_TRUSTED_STORE_SENDERS` | `owner` | csv of principals whose mail may trigger a store |
 | `ENGRAM_CLERK_MAX_COMPLETION_TOKENS` | `1024` | per-call cap |
 | `ENGRAM_CLERK_DAILY_CALL_CAP` | `200` | LLM calls/day; excess mail stays queued |
 | `ENGRAM_CLERK_DRY_RUN` | `1` | set `0` to act |

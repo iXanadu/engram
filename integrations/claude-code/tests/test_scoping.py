@@ -401,10 +401,10 @@ def test_partition_shared():
 def test_partition_project_with_principal(tmp_path):
     (tmp_path / ".engram.cfg").write_text("project = engram\n")
     scope, user_id, project = resolve_partition(
-        "project", project_dir=str(tmp_path), principal_name="ixanadu"
+        "project", project_dir=str(tmp_path), principal_name="owner"
     )
     assert scope == "project"
-    assert user_id == "ixanadu"
+    assert user_id == "owner"
     assert project == "engram"
 
 
@@ -417,7 +417,7 @@ def test_partition_project_without_principal_uses_unknown(tmp_path):
 def test_partition_project_falls_back_to_basename(tmp_path):
     # No .engram.cfg → basename of project_dir
     scope, user_id, project = resolve_partition(
-        "project", project_dir=str(tmp_path), principal_name="ixanadu"
+        "project", project_dir=str(tmp_path), principal_name="owner"
     )
     assert project == tmp_path.name
 

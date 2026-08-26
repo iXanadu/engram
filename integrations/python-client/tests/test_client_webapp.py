@@ -10,12 +10,12 @@ from engram_client import EngramClient
 def test_from_env_reads_prefixed_vars(monkeypatch):
     monkeypatch.setenv("PROJBETA_ENGRAM_URL", "http://example:8920")
     monkeypatch.setenv("PROJBETA_ENGRAM_TOKEN", "engram_tok")
-    monkeypatch.setenv("PROJBETA_ENGRAM_NAMESPACE", "ixanadu")
+    monkeypatch.setenv("PROJBETA_ENGRAM_NAMESPACE", "owner")
     monkeypatch.setenv("PROJBETA_ENGRAM_ENABLED", "false")
     c = EngramClient.from_env("PROJBETA")
     assert c.url == "http://example:8920"
     assert c.token == "engram_tok"
-    assert c.namespace == "ixanadu"
+    assert c.namespace == "owner"
     assert c.scope == "user"  # web-app default differs from the dataclass default
     assert c.enabled is False
 

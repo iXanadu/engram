@@ -11,13 +11,13 @@ import pytest
 async def test_project_scope_set_get_roundtrip(client):
     """Round-trip: set with user_id=person + project, read back with same."""
     try:
-        # ixanadu's wip/current in project engram
+        # owner's wip/current in project engram
         resp = await client.post("/memory/set", json={
             "namespace": "fleet",
             "key": "phase4-test-key",
-            "value": "ixanadu writes to engram",
+            "value": "owner writes to engram",
             "scope": "project",
-            "user_id": "ixanadu",
+            "user_id": "owner",
             "project": "engram",
         })
         assert resp.status_code == 200
@@ -27,21 +27,21 @@ async def test_project_scope_set_get_roundtrip(client):
             "namespace": "fleet",
             "key": "phase4-test-key",
             "scope": "project",
-            "user_id": "ixanadu",
+            "user_id": "owner",
             "project": "engram",
         })
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
-        assert data["memory"]["value"] == "ixanadu writes to engram"
+        assert data["memory"]["value"] == "owner writes to engram"
         assert data["memory"]["project"] == "engram"
-        assert data["memory"]["user_id"] == "ixanadu"
+        assert data["memory"]["user_id"] == "owner"
     finally:
         await client.post("/memory/forget", json={
             "namespace": "fleet",
             "key": "phase4-test-key",
             "scope": "project",
-            "user_id": "ixanadu",
+            "user_id": "owner",
             "project": "engram",
         })
 
@@ -56,7 +56,7 @@ async def test_project_isolation_same_key_different_project(client):
             "key": "phase4-iso",
             "value": "engram value",
             "scope": "project",
-            "user_id": "ixanadu",
+            "user_id": "owner",
             "project": "engram",
         })
         await client.post("/memory/set", json={
@@ -64,7 +64,7 @@ async def test_project_isolation_same_key_different_project(client):
             "key": "phase4-iso",
             "value": "projalpha value",
             "scope": "project",
-            "user_id": "ixanadu",
+            "user_id": "owner",
             "project": "projalpha",
         })
 
@@ -73,14 +73,14 @@ async def test_project_isolation_same_key_different_project(client):
             "namespace": "fleet",
             "key": "phase4-iso",
             "scope": "project",
-            "user_id": "ixanadu",
+            "user_id": "owner",
             "project": "engram",
         })
         r2 = await client.post("/memory/get", json={
             "namespace": "fleet",
             "key": "phase4-iso",
             "scope": "project",
-            "user_id": "ixanadu",
+            "user_id": "owner",
             "project": "projalpha",
         })
         assert r1.json()["memory"]["value"] == "engram value"
@@ -91,7 +91,7 @@ async def test_project_isolation_same_key_different_project(client):
                 "namespace": "fleet",
                 "key": "phase4-iso",
                 "scope": "project",
-                "user_id": "ixanadu",
+                "user_id": "owner",
                 "project": proj,
             })
 

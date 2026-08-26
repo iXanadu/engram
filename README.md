@@ -1,5 +1,23 @@
 # Tiding
 
+> # ⚠️ THIS IS A PUBLIC REPOSITORY
+>
+> **Anything committed here is world-readable, permanently, and cannot be
+> un-published — git history outlives any later deletion.**
+>
+> Never commit: real hostnames or fleet topology · internal project, product
+> or client names · personal paths (`/Users/<someone>`) · real domains ·
+> credentials, tokens or keys · private/LAN/tailnet IPs · phone numbers or
+> personal emails · customer content.
+>
+> Use generic placeholders instead (`hosta`, `projalpha`, `example.com`,
+> `/Users/dev`). Internal detail belongs in engram memory, never in the tree.
+>
+> **Before every commit: `scripts/repo-hygiene-check.sh` — and it must say
+> `denylist enforced`.** Without a local `.hygiene-denylist` it does NOT check
+> names, and "clean" means less than it looks.
+
+
 **Durable, shared, semantic memory for your AI agents — plus a message bus so they work as a team.**
 
 > **Tiding is the new name for engram** (renamed August 2026). The rename is
@@ -105,7 +123,7 @@ Four independent dimensions partition every memory:
 |-----------|---------|----------|
 | **namespace** | Which system is writing | `fleet`, `ha`, `beast`, `projbeta` |
 | **scope** | Visibility level | `shared`, `machine`, `project`, `user`, `inbox` |
-| **user_id** | Identity (the person, or machine for scope=machine) | `ixanadu`, hostname, `global`, HA UUID |
+| **user_id** | Identity (the person, or machine for scope=machine) | `owner`, hostname, `global`, HA UUID |
 | **project** | Project name (only for `scope=project`) | `engram`, `projalpha`, `admin` |
 
 UNIQUE constraint: `(namespace, key, scope, user_id, project)` with `NULLS NOT DISTINCT` — so two rows with the same key in the same namespace/scope/user_id but different projects coexist, while `project IS NULL` rows (scope=machine/shared/user/inbox) still enforce uniqueness on the four-tuple.
@@ -117,7 +135,7 @@ Each row also carries an `owner` column populated server-side from the authentic
 ### scope=project conventions
 
 For `scope=project` writes, the canonical shape is:
-- `user_id` = the **person** (principal name, e.g. `ixanadu`)
+- `user_id` = the **person** (principal name, e.g. `owner`)
 - `project` = the **project name** (e.g. `engram`, declared in `.engram.cfg`)
 
 Pre-Phase-4 clients sometimes sent the project name in `user_id` with no `project` field. Those rows were backfilled in the 2026-05-12 migration (project ← old user_id, user_id ← owner). The MCP bridge sends the new shape after upgrade.
@@ -403,7 +421,7 @@ Returns the principal record for the bearer token attached to the request.
 
 ```json
 {
-  "id": "...", "name": "ixanadu", "type": "human", "is_admin": true,
+  "id": "...", "name": "owner", "type": "human", "is_admin": true,
   "has_token": true, "has_password": false,
   "read_namespaces": ["*"], "write_namespaces": ["*"],
   "active": true, "created_at": "..."

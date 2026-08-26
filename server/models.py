@@ -270,7 +270,7 @@ class KeyEntry(BaseModel):
     # the partition; OWN-1 ownership is by PRINCIPAL, recorded server-side in
     # `owner` (and `custodian` when an estate was transferred, which takes
     # precedence). Without these a listing reads "claude-code" on a row only
-    # `ixanadu` may write, and the reader learns otherwise from a 409 at the
+    # `owner` may write, and the reader learns otherwise from a 409 at the
     # moment of the edit — after deciding what to do.
     #
     # NULL `owner` is NOT "author unknown": it is a row predating the column,

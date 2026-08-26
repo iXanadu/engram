@@ -34,9 +34,9 @@ Before (channel = namespace, fragile):
   Email agent → namespace: ???
 
 After (human-centric, channel is metadata):
-  HA voice    → namespace: human, user_id: ixanadu, channel: ha
-  Chat app    → namespace: human, user_id: ixanadu, channel: chat
-  Email agent → namespace: human, user_id: ixanadu, channel: email
+  HA voice    → namespace: human, user_id: owner, channel: ha
+  Chat app    → namespace: human, user_id: owner, channel: chat
+  Email agent → namespace: human, user_id: owner, channel: email
 
   HA system   → namespace: ha  (automations, device data — not personal memories)
 ```
@@ -67,9 +67,9 @@ A **principal** is a real identity that can act across namespaces. Humans are pr
 
 | Type | Examples | How they authenticate | Typical access |
 |------|----------|----------------------|----------------|
-| `human` | ixanadu, wife | Dashboard login, or identified by channel (HA user_id, chat username) | Read/write own `human` memories; may have read access to agent namespaces |
+| `human` | owner, wife | Dashboard login, or identified by channel (HA user_id, chat username) | Read/write own `human` memories; may have read access to agent namespaces |
 | `agent` | claude-code, beast | API bearer token | Read/write own namespace, maybe read others |
-| `admin` | ixanadu (wearing admin hat) | Dashboard login | Read/write agent namespaces freely; human memories still protected (see privacy model) |
+| `admin` | owner (wearing admin hat) | Dashboard login | Read/write agent namespaces freely; human memories still protected (see privacy model) |
 
 A principal can be both `human` and `admin`. These aren't mutually exclusive — it's about which hat they're wearing.
 
@@ -85,9 +85,9 @@ Aliases map all these external identifiers back to one principal. When any chann
 
 | Channel | External identifier | Resolves to |
 |---------|-------------------|-------------|
-| HA voice | `a1b2c3d4-uuid` | → ixanadu |
-| Chat app | `user@email.com` | → ixanadu |
-| Dashboard | login session | → ixanadu |
+| HA voice | `a1b2c3d4-uuid` | → owner |
+| Chat app | `user@email.com` | → owner |
+| Dashboard | login session | → owner |
 | HA voice | `e5f6g7h8-uuid` | → wife |
 
 ## Data Model
@@ -97,7 +97,7 @@ Aliases map all these external identifiers back to one principal. When any chann
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | uuid | Primary key |
-| `name` | text | Unique. "ixanadu", "claude-code", "beast" |
+| `name` | text | Unique. "owner", "claude-code", "beast" |
 | `type` | text | "human", "agent". Admins are humans with `is_admin=true` |
 | `is_admin` | bool | Grants read/write to all agent namespaces. Does NOT grant access to other humans' memories |
 | `token_hash` | text | bcrypt hash of API token (agents + optional for humans) |
@@ -194,31 +194,31 @@ Request comes in
 2. HA pyscript calls engram with `namespace=human`, `user_id=<ha-uuid>`, `channel:ha` in tags
 3. Auth resolves HA's bearer token → principal `ha-system` (agent)
 4. Server checks: `ha-system` has `human` in its `write_namespaces` (it's a trusted channel)
-5. Server resolves `user_id=<ha-uuid>` via alias → principal `ixanadu`
-6. Memory stored as `namespace=human, user_id=ixanadu, key=..., tags=channel:ha`
+5. Server resolves `user_id=<ha-uuid>` via alias → principal `owner`
+6. Memory stored as `namespace=human, user_id=owner, key=..., tags=channel:ha`
 
 **Human memory via future chat app** (same pattern):
 1. User types in chat app: "Remember Sarah's birthday is March 15"
 2. Chat app calls engram with `namespace=human`, `user_id=user@email.com`, `channel:chat` in tags
 3. Auth resolves chat app's token → trusted channel
-4. Server resolves `user_id=user@email.com` via alias → principal `ixanadu`
-5. Memory stored as `namespace=human, user_id=ixanadu, key=..., tags=channel:chat`
+4. Server resolves `user_id=user@email.com` via alias → principal `owner`
+5. Memory stored as `namespace=human, user_id=owner, key=..., tags=channel:chat`
 
-**Key point**: the `user_id` stored in the memory is the principal name (`ixanadu`), not the raw channel identifier. The alias resolution happens at write time, so all of a human's memories are filed under one consistent identity regardless of which channel created them.
+**Key point**: the `user_id` stored in the memory is the principal name (`owner`), not the raw channel identifier. The alias resolution happens at write time, so all of a human's memories are filed under one consistent identity regardless of which channel created them.
 
 ### Read Path
 
 **Admin searching from dashboard**:
 1. Dashboard sends search with session cookie
-2. Auth resolves session → principal `ixanadu` (is_admin=true)
+2. Auth resolves session → principal `owner` (is_admin=true)
 3. For agent namespaces: search fans out across all (or filtered) namespaces
-4. For `human` namespace: returns only ixanadu's own memories
+4. For `human` namespace: returns only owner's own memories
 5. Results merged, ranked by relevance
 
 **Human searching their own memories**:
-1. ixanadu searches "children soccer" from dashboard
-2. Search hits `human` namespace filtered to `user_id=ixanadu`
-3. Also hits `claude-code` (if ixanadu has read access) in case CC stored related context
+1. owner searches "children soccer" from dashboard
+2. Search hits `human` namespace filtered to `user_id=owner`
+3. Also hits `claude-code` (if owner has read access) in case CC stored related context
 4. Merged results from both
 
 **Agent reading another agent's output**:
@@ -248,7 +248,7 @@ Human memories are sacred. This is the hardest part of the design and the most i
 
 1. **Consent grant**: A human can grant another principal read access to their memories. Stored as a record, revocable anytime, optionally time-limited. Think of it like sharing a photo album — explicit, visible, revocable.
 
-   Example: wife grants ixanadu access so he can help debug her grocery list automation. She can revoke it anytime.
+   Example: wife grants owner access so he can help debug her grocery list automation. She can revoke it anytime.
 
 2. **Break-glass**: Admin can access another human's memories without consent, but it requires deliberate action. The dashboard shows a warning: *"You are about to view another person's private memories. This action will be logged and the user will be notified."* Must provide a reason. Recorded in audit log.
 
@@ -338,7 +338,7 @@ Steps 1–6 are one coherent change. Steps 7–9 are follow-up.
 
 ```
 # Create human principals
-engram-admin create-principal ixanadu --type human --admin --password ***
+engram-admin create-principal owner --type human --admin --password ***
 engram-admin create-principal wife --type human --password ***
 
 # Create agent principals
@@ -347,8 +347,8 @@ engram-admin create-principal beast --type agent --read beast,claude-code --writ
 engram-admin create-principal ha-system --type agent --read ha,human --write ha,human
 
 # Register aliases (how channels identify humans)
-engram-admin add-alias ixanadu --alias "<ha-user-uuid>" --source ha
-engram-admin add-alias ixanadu --alias "user@email.com" --source email
+engram-admin add-alias owner --alias "<ha-user-uuid>" --source ha
+engram-admin add-alias owner --alias "user@email.com" --source email
 engram-admin add-alias wife --alias "<ha-uuid-for-wife>" --source ha
 
 # Enable auth
@@ -360,7 +360,7 @@ export ENGRAM_REQUIRE_AUTH=true
 # Beast config: ENGRAM_API_TOKEN=<beast's generated token>
 ```
 
-After setup, ixanadu logs into the dashboard and searches "children" — gets results from `human` (their own memories from HA, chat, email), `claude-code` (agent work mentioning children), and any other readable namespace. Wife logs in and searches the same — sees only her own `human` memories plus any agent namespaces she has read access to.
+After setup, owner logs into the dashboard and searches "children" — gets results from `human` (their own memories from HA, chat, email), `claude-code` (agent work mentioning children), and any other readable namespace. Wife logs in and searches the same — sees only her own `human` memories plus any agent namespaces she has read access to.
 
 ## What This Spec Doesn't Cover (Future)
 

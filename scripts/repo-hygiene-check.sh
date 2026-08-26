@@ -14,6 +14,16 @@
 #   One case-insensitive extended-regex pattern per line; '#' comments.
 set -euo pipefail
 
+ALLOW_NO_DENYLIST=0
+args=()
+for a in "$@"; do
+  case "$a" in
+    --no-denylist) ALLOW_NO_DENYLIST=1 ;;
+    *) args+=("$a") ;;
+  esac
+done
+set -- "${args[@]+"${args[@]}"}"
+
 ROOT="${1:-.}"
 cd "$ROOT"
 command -v git >/dev/null || { echo "not a git checkout"; exit 2; }
@@ -63,8 +73,15 @@ scan "personal email address" \
   '\b[A-Za-z0-9._%+-]+@(?!example\.|test\.|localhost)[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b' -P
 
 # --- local denylist ----------------------------------------------------------
+# ⚠️ THIS BLOCK USED TO FAIL SILENTLY. If no denylist existed, the scan for
+# people / clients / internal hostnames simply did not run, and the script
+# still printed "✓ repo-hygiene: clean". Measured 2026-08-26: nine consecutive
+# commits were reported clean by a check that had never once looked at a
+# hostname. A check that skips is not a check that passes — say so, loudly.
+denylist_found=0
 for DL in ".hygiene-denylist" "$HOME/.config/repo-hygiene/denylist"; do
   if [ -f "$DL" ]; then
+    denylist_found=1
     while IFS= read -r pat; do
       case "$pat" in ''|\#*) continue;; esac
       scan "denylist: $pat" "$pat" -i
@@ -72,8 +89,26 @@ for DL in ".hygiene-denylist" "$HOME/.config/repo-hygiene/denylist"; do
   fi
 done
 
+if [ "$denylist_found" -eq 0 ] && [ "$ALLOW_NO_DENYLIST" -eq 0 ]; then
+  fail=1
+  echo "✗ NO DENYLIST — the people / clients / internal-hosts scan DID NOT RUN"
+  echo "    This is not a pass. Key material, private IPs, phone numbers and"
+  echo "    emails were checked; NAMES were not looked at even once."
+  echo "    Create one (never tracked; already in .gitignore):"
+  echo "      .hygiene-denylist   or   \$HOME/.config/repo-hygiene/denylist"
+  echo "    One case-insensitive extended-regex per line, '#' for comments."
+  echo "    To deliberately run without one, pass --no-denylist."
+  echo
+fi
+
 if [ "$fail" -eq 0 ]; then
-  echo "✓ repo-hygiene: clean"
+  if [ "$denylist_found" -eq 1 ]; then
+    echo "✓ repo-hygiene: clean (denylist enforced)"
+  else
+    # Say what was NOT checked. "clean" with a skipped scan behind it is the
+    # exact thing this script was changed to stop doing.
+    echo "✓ repo-hygiene: clean — BUT NO DENYLIST: names were not checked"
+  fi
 else
   echo
   echo "Findings above violate the assume-public doctrine (docs/backlog-standard.md)."

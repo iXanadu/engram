@@ -732,7 +732,7 @@ async def memory_keys(
                    -- by principal, recorded server-side in `owner` (and
                    -- `custodian` when an estate was transferred). Without
                    -- these the listing reads "claude-code" on a row only
-                   -- `ixanadu` may write, and the reader finds out at the 409
+                   -- `owner` may write, and the reader finds out at the 409
                    -- — after deciding what to do.
                    owner, custodian,
                    count(*) OVER () AS total

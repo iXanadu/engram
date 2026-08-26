@@ -1421,7 +1421,7 @@ async def memory_keys(
         # OWN-2: this used to print `user_id` BARE and unlabelled, so a reader
         # took it for the author. It is the PARTITION. Ownership is by
         # PRINCIPAL, and the two disagree exactly when it matters — a listing
-        # said "claude-code" on a row only `ixanadu` could write, and the
+        # said "claude-code" on a row only `owner` could write, and the
         # correction was refused 409 at the moment of the edit, long after the
         # reader had decided what to do. Label both, and only where ownership
         # is actually enforced (project scope).

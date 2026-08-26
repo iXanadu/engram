@@ -35,10 +35,17 @@ async def test_memory_store(respx_mock):
 
 
 @respx.mock(base_url="http://localhost:8920")
-async def test_memory_store_sends_provenance_and_identity(respx_mock):
+async def test_memory_store_sends_provenance_and_identity(respx_mock, tmp_path):
     """Writes must include X-Engram-Project / X-Engram-Cwd headers and
     the listen_set + reader_identity on the request body so the server can
-    attach an inbox banner and record the origin folder."""
+    attach an inbox banner and record the origin folder.
+
+    Uses a real tmp project (the convention elsewhere in this file) rather
+    than a hardcoded path under someone's home: scope=project REFUSES a
+    directory it cannot resolve to a declared project, so a literal path only
+    worked on the one machine where that folder happened to exist.
+    """
+    (tmp_path / ".engram.cfg").write_text("project = engram\n")
     route = respx_mock.post("/memory/set").mock(
         return_value=httpx.Response(200, json={"status": "ok", "key": "k"})
     )
@@ -47,11 +54,11 @@ async def test_memory_store_sends_provenance_and_identity(respx_mock):
             key="k",
             value="v",
             scope="project",
-            project_dir="/Users/dev/projects/engram",
+            project_dir=str(tmp_path),
         )
     req = route.calls.last.request
     assert req.headers["x-engram-project"] == "engram"
-    assert req.headers["x-engram-cwd"] == "/Users/dev/projects/engram"
+    assert req.headers["x-engram-cwd"] == str(tmp_path)
     import json as _json
     body = _json.loads(req.content)
     assert body["reader_identity"] == "engram@hosta"
@@ -435,12 +442,12 @@ async def test_memory_store_admin_override_project_and_user_id(respx_mock):
         value="cross-project admin write",
         scope="project",
         project="other-app",
-        user_id="ixanadu",
+        user_id="owner",
     )
-    assert "user_id: ixanadu" in result
+    assert "user_id: owner" in result
     assert "project: other-app" in result
     body = route.calls.last.request.read()
-    assert b'"user_id":"ixanadu"' in body
+    assert b'"user_id":"owner"' in body
     assert b'"project":"other-app"' in body
 
 
@@ -450,10 +457,10 @@ async def test_memory_search_admin_override(respx_mock):
         return_value=httpx.Response(200, json={"status": "ok", "results": []})
     )
     await memory_search(
-        query="anything", scope="project", project="other-app", user_id="ixanadu"
+        query="anything", scope="project", project="other-app", user_id="owner"
     )
     body = route.calls.last.request.read()
-    assert b'"user_id":"ixanadu"' in body
+    assert b'"user_id":"owner"' in body
     assert b'"project":"other-app"' in body
 
 
@@ -1233,15 +1240,20 @@ async def test_memory_keys_truncation_is_announced(respx_mock):
 
 
 @respx.mock(base_url="http://localhost:8920")
-async def test_memory_keys_project_scope_spans_writers(respx_mock):
+async def test_memory_keys_project_scope_spans_writers(respx_mock, tmp_path):
     """Same MEM-5 rule as search: unpinned project enumeration spans every
-    writer — the project's memory belongs to the project."""
+    writer — the project's memory belongs to the project.
+
+    Real tmp project, not a path under someone's home — see the note on
+    test_memory_store_sends_provenance_and_identity.
+    """
+    (tmp_path / ".engram.cfg").write_text("project = engram\n")
     route = respx_mock.post("/memory/keys").mock(
         return_value=httpx.Response(200, json={"status": "ok", "total": 0, "keys": []})
     )
     with patch("engram_mcp.identity.hostname", return_value="hosta"):
         await memory_keys(
-            scope="project", project_dir="/Users/dev/projects/engram"
+            scope="project", project_dir=str(tmp_path)
         )
     body = json.loads(route.calls.last.request.content)
     assert body["user_id"] == "*"
@@ -1368,7 +1380,7 @@ async def test_memory_keys_labels_partition_and_names_the_owner(respx_mock):
     """OWN-2, the defect in one assertion.
 
     Measured 2026-08-23: the listing printed `user_id` BARE, so a reader took
-    the PARTITION for the author — "claude-code" on a row only `ixanadu` may
+    the PARTITION for the author — "claude-code" on a row only `owner` may
     write — and found out from a 409 at the moment of the edit.
     """
     respx_mock.post("/memory/keys").mock(return_value=_own2_keys_response([
@@ -1376,13 +1388,13 @@ async def test_memory_keys_labels_partition_and_names_the_owner(respx_mock):
             "namespace": "fleet", "key": "state/thing", "scope": "project",
             "user_id": "claude-code", "project": "engram", "value_chars": 120,
             "created_at": "2026-08-12T12:00:00+00:00", "status": None,
-            "owner": "ixanadu", "custodian": None,
+            "owner": "owner", "custodian": None,
         },
     ]))
     result = await memory_keys(prefix="state/", scope="project", project="engram")
 
     # the writer is named...
-    assert "owner:ixanadu" in result
+    assert "owner:owner" in result
     # ...and the partition is labelled as such, so it cannot be read as one
     assert "partition:claude-code" in result
 
@@ -1418,11 +1430,11 @@ async def test_memory_keys_prefers_custodian_over_owner(respx_mock):
             "namespace": "fleet", "key": "state/transferred", "scope": "project",
             "user_id": "claude-code", "project": "engram", "value_chars": 12,
             "created_at": "2026-08-01T12:00:00+00:00", "status": None,
-            "owner": "departed-agent", "custodian": "ixanadu",
+            "owner": "departed-agent", "custodian": "owner",
         },
     ]))
     result = await memory_keys(prefix="state/", scope="project", project="engram")
-    assert "custodian:ixanadu" in result
+    assert "custodian:owner" in result
     assert "owner:departed-agent" not in result
 
 

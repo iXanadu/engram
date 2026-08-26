@@ -16,7 +16,7 @@ async def _cleanup(db_pool):
     async with db_pool.acquire() as conn:
         await conn.execute(
             "DELETE FROM memories WHERE scope='inbox' AND (user_id LIKE 'hr1%' "
-            "OR (user_id IN ('ixanadu','ixanadu@hosta') AND value LIKE 'hr1-%'))")
+            "OR (user_id IN ('owner','owner@hosta') AND value LIKE 'hr1-%'))")
 
 
 def _hud(r):
@@ -25,7 +25,7 @@ def _hud(r):
 
 @pytest.mark.asyncio
 async def test_huddle_threaded_send_to_a_peer_warns_and_names_the_action(client, db_pool, monkeypatch):
-    monkeypatch.setattr(settings, "owner_principal_name", "ixanadu")
+    monkeypatch.setattr(settings, "owner_principal_name", "owner")
     monkeypatch.setattr(settings, "huddle_fanout_refusal_enabled", False)
     await _cleanup(db_pool)
     try:
@@ -35,28 +35,28 @@ async def test_huddle_threaded_send_to_a_peer_warns_and_names_the_action(client,
         assert r.status_code == 200, r.text          # warn, never reject
         w = _hud(r)
         assert len(w) == 1, r.json().get("recipient_warnings")
-        assert "huddle/hr1room" in w[0] and "hr1-peer" in w[0] and "ixanadu" in w[0]
+        assert "huddle/hr1room" in w[0] and "hr1-peer" in w[0] and "owner" in w[0]
         assert "memory_reply to the huddle kickoff" in w[0]
         # Fan-out: one line per offending recipient, none for the owner.
         r = await client.post("/memory/send", json={
-            "to": ["hr1-peer", "hr1-peer2", "ixanadu"], "body": "hr1-y", "subject": "s",
+            "to": ["hr1-peer", "hr1-peer2", "owner"], "body": "hr1-y", "subject": "s",
             "from_": "hr1-sender", "thread_id": "huddle/hr1room", "intent": "fyi"})
         assert r.status_code == 200, r.text
         w = _hud(r)
-        assert len(w) == 2 and all("ixanadu, this" not in x for x in w)
+        assert len(w) == 2 and all("owner, this" not in x for x in w)
     finally:
         await _cleanup(db_pool)
 
 
 @pytest.mark.asyncio
 async def test_no_warning_for_owner_recipient_non_huddle_thread_lifecycle_or_unset_owner(client, db_pool, monkeypatch):
-    monkeypatch.setattr(settings, "owner_principal_name", "ixanadu")
+    monkeypatch.setattr(settings, "owner_principal_name", "owner")
     monkeypatch.setattr(settings, "huddle_fanout_refusal_enabled", False)
     await _cleanup(db_pool)
     try:
         for body, payload in [
-            ("hr1-owner", {"to": "ixanadu", "thread_id": "huddle/hr1room"}),
-            ("hr1-owner-host", {"to": "ixanadu@hosta", "thread_id": "huddle/hr1room"}),
+            ("hr1-owner", {"to": "owner", "thread_id": "huddle/hr1room"}),
+            ("hr1-owner-host", {"to": "owner@hosta", "thread_id": "huddle/hr1room"}),
             ("hr1-dm", {"to": "hr1-peer", "thread_id": "inbox/some-thread"}),
             ("hr1-nothread", {"to": "hr1-peer"}),
             ("hr1-lifecycle", {"to": "hr1-peer", "thread_id": "huddle/hr1room", "huddle_lifecycle": True}),
@@ -78,15 +78,15 @@ async def test_no_warning_for_owner_recipient_non_huddle_thread_lifecycle_or_uns
 @pytest.mark.asyncio
 async def test_owner_principal_itself_is_not_warned(client, db_pool, monkeypatch):
     """The relay (owner token) knows the routing; its sends are not nagged."""
-    monkeypatch.setattr(settings, "owner_principal_name", "ixanadu")
+    monkeypatch.setattr(settings, "owner_principal_name", "owner")
     monkeypatch.setattr(settings, "huddle_fanout_refusal_enabled", False)
     import server.routers.memory as mem_router
     monkeypatch.setattr(mem_router, "get_current_principal",
-                        lambda request: {"name": "ixanadu", "is_admin": True})
+                        lambda request: {"name": "owner", "is_admin": True})
     await _cleanup(db_pool)
     try:
         r = await client.post("/memory/send", json={
-            "to": "hr1-peer", "body": "hr1-relay", "subject": "s", "from_": "ixanadu",
+            "to": "hr1-peer", "body": "hr1-relay", "subject": "s", "from_": "owner",
             "thread_id": "huddle/hr1room", "intent": "fyi"})
         assert r.status_code == 200, r.text
         assert _hud(r) == []

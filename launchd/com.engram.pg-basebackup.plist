@@ -14,7 +14,7 @@
         <string>/opt/srv/engram/scripts/pg-basebackup.sh</string>
     </array>
     <key>UserName</key>
-    <string>ixanadu</string>
+    <string>owner</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>HOME</key>

@@ -119,7 +119,7 @@ async def test_whoami(mock_api, client):
             200,
             json={
                 "id": "00000000-0000-0000-0000-000000000000",
-                "name": "ixanadu",
+                "name": "owner",
                 "type": "human",
                 "is_admin": True,
                 "has_token": True,
@@ -132,7 +132,7 @@ async def test_whoami(mock_api, client):
         )
     )
     result = await client.whoami()
-    assert result["name"] == "ixanadu"
+    assert result["name"] == "owner"
     assert result["is_admin"] is True
 
 
@@ -150,11 +150,11 @@ async def test_store_with_project(mock_api, client):
         value="v",
         namespace="claude-code",
         scope="project",
-        user_id="ixanadu",
+        user_id="owner",
         project="engram",
     )
     assert captured["project"] == "engram"
-    assert captured["user_id"] == "ixanadu"
+    assert captured["user_id"] == "owner"
 
 
 def test_provenance_uses_anchor_when_project_dir_omitted(monkeypatch):

@@ -25,11 +25,11 @@ check() {  # check <label> <where> <status> <expected>
 
 [ -r "$KEYS" ] || { echo "cannot read $KEYS"; exit 2; }
 RC=0
-for label in ixanadu claude-code; do
+for label in owner claude-code; do
   t="$(tok "$label")"
   [ -n "$t" ] || { echo "  SKIP  $label: no such label in $KEYS"; RC=1; continue; }
   case "$label" in
-    ixanadu)     exp_pub=403; exp_loc=200 ;;   # admin: refused on the edge, fine at home
+    owner)     exp_pub=403; exp_loc=200 ;;   # admin: refused on the edge, fine at home
     claude-code) exp_pub=200; exp_loc=200 ;;   # scoped: unaffected everywhere
   esac
   check "$label" public "$(call "$t" "$PUBLIC")" "$exp_pub"

@@ -4,7 +4,7 @@ Measured 2026-08-23 while correcting a stale `state/*` row: `memory_keys`
 printed `user_id` — the PARTITION — and a reader took it for the row's writer.
 Ownership (OWN-1) is by PRINCIPAL, held in `owner`, and the two disagree
 exactly when it matters. So a listing read "claude-code" on a row only
-`ixanadu` may write, and the refusal arrived as a 409 at the moment of the
+`owner` may write, and the refusal arrived as a 409 at the moment of the
 edit — after the reader had already decided what to do.
 
 The 409 itself is good: it names the holder. The LISTING is what misled.

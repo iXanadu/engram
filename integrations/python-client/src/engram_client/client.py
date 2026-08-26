@@ -8,7 +8,7 @@ Usage::
     engram = EngramClient(
         url="http://localhost:8920",
         token="engram_...",
-        namespace="coursebuilder-ixanadu",
+        namespace="coursebuilder-owner",
         project="ProjAlpha",
     )
 
@@ -310,7 +310,7 @@ class EngramClient:
         constructor arg > principal name from ``/whoami`` (cached) > None.
 
         An app authenticating with a human's token gets the human's name
-        as its address (e.g. ``ixanadu``) — anyone in the fleet can reach
+        as its address (e.g. ``owner``) — anyone in the fleet can reach
         the human there. A CC session that wants a per-project identity
         (``engram@hosta``) sets ``reader_identity=`` explicitly at
         construction time.

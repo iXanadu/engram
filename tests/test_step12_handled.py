@@ -95,7 +95,7 @@ async def test_own_followup_never_handles_and_resolve_does(client, db_pool):
 async def test_meeting_traffic_and_chatter_get_no_verdict(client, db_pool):
     await _clear(db_pool)
     meeting = await _send(client, f"{PFX}w4", intent="action",
-                          from_="ixanadu", thread_id="huddle/s12room")
+                          from_="owner", thread_id="huddle/s12room")
     chatter = await _send(client, f"{PFX}w4", intent="fyi", from_="peer")
     m = await _get(client, f"{PFX}w4", meeting)
     assert m["handled"] is None, "huddle/* threads are O6's domain"

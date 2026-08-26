@@ -1,5 +1,11 @@
 # engram — BACKLOG (open items only)
 
+> # ⚠️ THIS FILE IS IN A PUBLIC REPOSITORY — write every line as if a
+> # stranger will read it, because one can.
+> No real hostnames, internal project/client names, personal paths, real
+> domains, credentials, topology, or exploit detail. Generic placeholders
+> only. Internal detail goes to engram memory.
+>
 > Open work only. Done = delete the line (its story lives in the commit and in
 > memory). No secrets, PII, client names, topology, or exploit detail — this
 > file is written as if public. Journal → engram memory. Standard:
@@ -42,7 +48,7 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   **A room conversation pages the owner on every line.** Replying into a
   huddle addresses the message to the room owner personally, and a
   person-addressed reply defaults to a WAKING intent. Measured over three
-  hours: **55 of 57 messages sent to `ixanadu` were marked `action`** —
+  hours: **55 of 57 messages sent to `owner` were marked `action`** —
   projepsilon-claude-3 19/19, projalpha-claude-9 19/19, engram-claude-3
   16/17. Uniform across all three seats, so it is the default and not three
   agents being careless. His words: *"I've returned here three or four times
@@ -1067,7 +1073,7 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   Install artifact was always `tiding-mcp`, so no plan change; a
   pypi/support request for the bare name is optional and unhurried.
   **P1 public face IN PROGRESS 2026-08-19** (owner handed the wheel):
-  GitHub repo RENAMED → `iXanadu/tiding` (old URLs redirect, verified;
+  GitHub repo RENAMED → `owner/tiding` (old URLs redirect, verified;
   fleet remotes untouched until P3), README rebranded with rollout
   notice, clone URLs updated. License RULED + shipped 2026-08-19:
   Apache-2.0 (owner; adoption-first, patent grant + trademark clause;

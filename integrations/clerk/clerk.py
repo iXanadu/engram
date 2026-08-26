@@ -41,7 +41,7 @@ import httpx
 API_URL = os.environ.get("ENGRAM_CLERK_API_URL", "http://localhost:8920").rstrip("/")
 TOKEN = os.environ.get("ENGRAM_CLERK_TOKEN", "")
 ADDRESS = os.environ.get("ENGRAM_CLERK_ADDRESS", "clerk")
-OWNER_ADDRESS = os.environ.get("ENGRAM_CLERK_OWNER_ADDRESS", "ixanadu")
+OWNER_ADDRESS = os.environ.get("ENGRAM_CLERK_OWNER_ADDRESS", "owner")
 NAMESPACE = os.environ.get("ENGRAM_CLERK_NAMESPACE", "fleet")
 
 LLM_BASE_URL = os.environ.get("ENGRAM_CLERK_LLM_BASE_URL", "").rstrip("/")
@@ -53,7 +53,7 @@ MAX_COMPLETION_TOKENS = int(os.environ.get("ENGRAM_CLERK_MAX_COMPLETION_TOKENS",
 # compared against server-stamped from_principal, never body text.
 TRUSTED_STORE_SENDERS = {
     s.strip().lower()
-    for s in os.environ.get("ENGRAM_CLERK_TRUSTED_STORE_SENDERS", "ixanadu").split(",")
+    for s in os.environ.get("ENGRAM_CLERK_TRUSTED_STORE_SENDERS", "owner").split(",")
     if s.strip()
 }
 

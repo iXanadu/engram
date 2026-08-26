@@ -236,9 +236,9 @@ BEGIN
 
     -- Owner backfill: rows from claude-code MCP traffic were previously owned
     -- by the 'claude-code' agent principal; the MCP bridge now authenticates
-    -- as 'ixanadu'. Backfill old + NULL owners to ixanadu (claude-code
+    -- as 'owner'. Backfill old + NULL owners to owner (claude-code
     -- namespace, non-inbox/user scopes only — don't touch ha or inbox).
-    UPDATE memories SET owner = 'ixanadu'
+    UPDATE memories SET owner = 'owner'
     WHERE namespace = 'claude-code'
       AND scope IN ('shared', 'machine', 'project')
       AND (owner IS NULL OR owner = 'claude-code');

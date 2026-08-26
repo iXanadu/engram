@@ -37,7 +37,7 @@ async def test_preserved_legs_with_flag_on(client, db_pool, monkeypatch):
     even with the flag ON — the triple requires the OWNER principal."""
     monkeypatch.setattr(settings, "huddle_fanout_refusal_enabled", True)
     for body in [
-        {"to": "ixanadu-probe10d", "body": "utterance", "subject": "s",
+        {"to": "owner-probe10d", "body": "utterance", "subject": "s",
          "from_": "agent-claude-2", "thread_id": "huddle/s10d"},  # ingest leg
         {"to": "s10d-b", "body": "dm", "subject": "s", "from_": "x"},  # no thread
         {"to": "s10d-c", "body": "b", "subject": "s", "from_": "x",
@@ -49,7 +49,7 @@ async def test_preserved_legs_with_flag_on(client, db_pool, monkeypatch):
         await conn.execute(
             "DELETE FROM memories WHERE scope='inbox' AND user_id LIKE 's10d%'")
         await conn.execute(
-            "DELETE FROM memories WHERE scope='inbox' AND user_id = 'ixanadu-probe10d'")
+            "DELETE FROM memories WHERE scope='inbox' AND user_id = 'owner-probe10d'")
 
 
 @pytest.mark.asyncio
@@ -58,31 +58,31 @@ async def test_owner_fanout_triple_is_refused_flag_on(
     """The refusal triple, exercised by patching the resolved principal to
     an admin (the router consults get_current_principal)."""
     monkeypatch.setattr(settings, "huddle_fanout_refusal_enabled", True)
-    monkeypatch.setattr(settings, "owner_principal_name", "ixanadu")
+    monkeypatch.setattr(settings, "owner_principal_name", "owner")
     import server.routers.memory as mem_router
     monkeypatch.setattr(
         mem_router, "get_current_principal",
-        lambda request: {"name": "ixanadu", "is_admin": True})
+        lambda request: {"name": "owner", "is_admin": True})
     # Fan-out shape: owner principal, huddle thread, non-owner recipient.
     r = await client.post("/memory/send", json={
         "to": "s10d-victim", "body": "fanout copy", "subject": "s",
-        "from_": "ixanadu", "thread_id": "huddle/s10d"})
+        "from_": "owner", "thread_id": "huddle/s10d"})
     assert r.status_code == 409
     assert "wake" in r.json()["detail"]
     # Same principal, same thread, recipient IS the owner: allowed (source copy).
     r = await client.post("/memory/send", json={
-        "to": "ixanadu", "body": "self", "subject": "s",
-        "from_": "ixanadu", "thread_id": "huddle/s10d"})
+        "to": "owner", "body": "self", "subject": "s",
+        "from_": "owner", "thread_id": "huddle/s10d"})
     assert r.status_code == 200
     # Same principal, no huddle thread: allowed (a true DM).
     r = await client.post("/memory/send", json={
-        "to": "s10d-dm", "body": "real dm", "subject": "s", "from_": "ixanadu"})
+        "to": "s10d-dm", "body": "real dm", "subject": "s", "from_": "owner"})
     assert r.status_code == 200
     async with db_pool.acquire() as conn:
         await conn.execute(
             "DELETE FROM memories WHERE scope='inbox' AND user_id LIKE 's10d%'")
         await conn.execute(
-            "DELETE FROM memories WHERE scope='inbox' AND user_id = 'ixanadu' "
+            "DELETE FROM memories WHERE scope='inbox' AND user_id = 'owner' "
             "AND value = 'self'")
 
 
@@ -91,34 +91,34 @@ async def test_lifecycle_letters_and_host_qualified_owner_pass(
         client, db_pool, monkeypatch):
     """The two audit locks: relay-declared lifecycle letters (kickoff/
     close/add) stay mail even under the triple; the owner exemption covers
-    ixanadu@host, so the source/ingest leg lives host-qualified too."""
+    owner@host, so the source/ingest leg lives host-qualified too."""
     monkeypatch.setattr(settings, "huddle_fanout_refusal_enabled", True)
-    monkeypatch.setattr(settings, "owner_principal_name", "ixanadu")
+    monkeypatch.setattr(settings, "owner_principal_name", "owner")
     import server.routers.memory as mem_router
     monkeypatch.setattr(
         mem_router, "get_current_principal",
-        lambda request: {"name": "ixanadu", "is_admin": True})
+        lambda request: {"name": "owner", "is_admin": True})
     # Kickoff shape: owner + huddle thread + non-owner recipient + lifecycle.
     r = await client.post("/memory/send", json={
         "to": "s10d-newmember", "body": "you are in a room", "subject": "k",
-        "from_": "ixanadu", "thread_id": "huddle/s10d",
+        "from_": "owner", "thread_id": "huddle/s10d",
         "huddle_lifecycle": True})
     assert r.status_code == 200, r.text[:200]
     # Host-qualified owner recipient: allowed (bare/host split).
     r = await client.post("/memory/send", json={
-        "to": "ixanadu@hosta", "body": "source", "subject": "s",
-        "from_": "ixanadu", "thread_id": "huddle/s10d"})
+        "to": "owner@hosta", "body": "source", "subject": "s",
+        "from_": "owner", "thread_id": "huddle/s10d"})
     assert r.status_code == 200
     # The bare triple without the lifecycle bit still refuses.
     r = await client.post("/memory/send", json={
         "to": "s10d-victim2", "body": "fanout", "subject": "s",
-        "from_": "ixanadu", "thread_id": "huddle/s10d"})
+        "from_": "owner", "thread_id": "huddle/s10d"})
     assert r.status_code == 409
     async with db_pool.acquire() as conn:
         await conn.execute(
             "DELETE FROM memories WHERE scope='inbox' AND user_id LIKE 's10d%'")
         await conn.execute(
-            "DELETE FROM memories WHERE scope='inbox' AND user_id = 'ixanadu@hosta' "
+            "DELETE FROM memories WHERE scope='inbox' AND user_id = 'owner@hosta' "
             "AND value = 'source'")
 
 
@@ -128,7 +128,7 @@ async def test_admin_but_not_owner_is_never_refused(client, db_pool, monkeypatch
     on the owner NAME. An admin that is not the owner passes; an unset
     owner name disables the refusal entirely, whatever the flag."""
     monkeypatch.setattr(settings, "huddle_fanout_refusal_enabled", True)
-    monkeypatch.setattr(settings, "owner_principal_name", "ixanadu")
+    monkeypatch.setattr(settings, "owner_principal_name", "owner")
     import server.routers.memory as mem_router
     monkeypatch.setattr(
         mem_router, "get_current_principal",
@@ -141,9 +141,9 @@ async def test_admin_but_not_owner_is_never_refused(client, db_pool, monkeypatch
     monkeypatch.setattr(settings, "owner_principal_name", "")
     monkeypatch.setattr(
         mem_router, "get_current_principal",
-        lambda request: {"name": "ixanadu", "is_admin": True})
+        lambda request: {"name": "owner", "is_admin": True})
     r = await client.post("/memory/send", json={
-        "to": "s10d-k", "body": "b", "subject": "s", "from_": "ixanadu",
+        "to": "s10d-k", "body": "b", "subject": "s", "from_": "owner",
         "thread_id": "huddle/s10d"})
     assert r.status_code == 200
     async with db_pool.acquire() as conn:

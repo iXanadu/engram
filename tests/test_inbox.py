@@ -179,7 +179,7 @@ async def test_machine_addressing(client, db_pool):
     resp = await client.post("/memory/send", json={
         "to": "machine:hosta",
         "body": "restart ollama please",
-        "from_": "ixanadu@macbook",
+        "from_": "owner@macbook",
     })
     assert resp.status_code == 200
     msg_id = resp.json()["id"]

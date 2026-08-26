@@ -86,7 +86,7 @@ def test_store_refused_outside_prefix_allowlist():
         "action": "store_shared",
         "store": {"key": "startup/next", "value": "evil handoff"},
     })
-    ok, why = clerk.store_allowed(d, "ixanadu")
+    ok, why = clerk.store_allowed(d, "owner")
     assert not ok and "prefixes" in why
 
 
@@ -95,5 +95,5 @@ def test_store_allowed_for_trusted_sender_and_prefix():
         "action": "store_shared",
         "store": {"key": "reference/model-lifecycle/x", "value": "v"},
     })
-    ok, why = clerk.store_allowed(d, "IXANADU")  # case-insensitive
+    ok, why = clerk.store_allowed(d, "OWNER")  # case-insensitive
     assert ok, why
