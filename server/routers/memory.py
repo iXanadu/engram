@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 
+from server.shutdown import shutting_down
 from server.dependencies import (
     check_namespace_access,
     check_namespaces_access,
@@ -1326,7 +1327,24 @@ async def wait_inbox(req: InboxWaitRequest, request: Request):
                     status="timeout", messages=[], waited_seconds=round(waited, 1),
                     guidance="No new mail. Re-issue the wait to keep listening.",
                 )
-            await asyncio.sleep(min(poll_every, max(0.05, req.timeout_seconds - waited)))
+            # DEPLOY-3: a held long-poll is an in-flight request, and uvicorn
+            # drains those before it exits — so this loop, not the deploy
+            # script's patience, decides how long a bounce takes. Measured
+            # 2026-08-26: one 120s wait held SIGTERM for 116s, and callers may
+            # ask for up to 300. Return the moment we are asked to stop; the
+            # client re-issues, which is what it already does on a timeout.
+            sleep_for = min(poll_every, max(0.05, req.timeout_seconds - waited))
+            try:
+                await asyncio.wait_for(shutting_down.wait(), timeout=sleep_for)
+            except asyncio.TimeoutError:
+                pass
+            if shutting_down.is_set():
+                return InboxWaitResponse(
+                    status="timeout", messages=[],
+                    waited_seconds=round(
+                        (datetime.now(timezone.utc) - started).total_seconds(), 1),
+                    guidance="Server is restarting — re-issue the wait to keep listening.",
+                )
     except Exception as e:
         logger.exception("inbox_wait failed")
         raise HTTPException(status_code=500, detail="internal error — see server logs")

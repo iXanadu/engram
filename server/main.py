@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from server.auth import PrincipalAuthMiddleware
 from server.config import settings
+from server.shutdown import install_signal_hook
 from server.db import close_pool, init_pool
 from server.embeddings import close_client, init_client
 from server.routers import (
@@ -151,6 +152,11 @@ async def lifespan(app: FastAPI):
     logger.info("Database pool and embedding client ready")
 
     await _bootstrap_admin()
+
+    # DEPLOY-3: raise the stop flag from the SIGNAL, not from lifespan
+    # shutdown — uvicorn drains in-flight requests first, so a hook here
+    # would fire after the long-polls it needs to release.
+    install_signal_hook()
 
     background_tasks = []
     if settings.cleanup_enabled:
