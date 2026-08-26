@@ -1354,3 +1354,89 @@ async def test_lane2b_runtime_seat_equal_to_lane_still_travels(monkeypatch):
     await srv._claim_seat("/tmp/proj")
     assert captured["preferred_seat"] == "proj-claude"
     assert captured["runtime_seat"] is True
+
+
+# --- OWN-2: the listing must not print the partition where the author goes ---
+
+
+def _own2_keys_response(rows):
+    return httpx.Response(200, json={"status": "ok", "total": len(rows), "keys": rows})
+
+
+@respx.mock(base_url="http://localhost:8920")
+async def test_memory_keys_labels_partition_and_names_the_owner(respx_mock):
+    """OWN-2, the defect in one assertion.
+
+    Measured 2026-08-23: the listing printed `user_id` BARE, so a reader took
+    the PARTITION for the author — "claude-code" on a row only `ixanadu` may
+    write — and found out from a 409 at the moment of the edit.
+    """
+    respx_mock.post("/memory/keys").mock(return_value=_own2_keys_response([
+        {
+            "namespace": "fleet", "key": "state/thing", "scope": "project",
+            "user_id": "claude-code", "project": "engram", "value_chars": 120,
+            "created_at": "2026-08-12T12:00:00+00:00", "status": None,
+            "owner": "ixanadu", "custodian": None,
+        },
+    ]))
+    result = await memory_keys(prefix="state/", scope="project", project="engram")
+
+    # the writer is named...
+    assert "owner:ixanadu" in result
+    # ...and the partition is labelled as such, so it cannot be read as one
+    assert "partition:claude-code" in result
+
+
+@respx.mock(base_url="http://localhost:8920")
+async def test_memory_keys_says_unowned_rather_than_leaving_a_blank(respx_mock):
+    """A NULL owner is a legacy row ANY writer may edit — not 'unknown'.
+
+    Rendering it as a blank would move the ambiguity instead of removing it,
+    and would understate what the reader is allowed to do.
+    """
+    respx_mock.post("/memory/keys").mock(return_value=_own2_keys_response([
+        {
+            "namespace": "fleet", "key": "state/legacy", "scope": "project",
+            "user_id": "claude-code", "project": "engram", "value_chars": 12,
+            "created_at": "2026-08-01T12:00:00+00:00", "status": None,
+            "owner": None, "custodian": None,
+        },
+    ]))
+    result = await memory_keys(prefix="state/", scope="project", project="engram")
+    assert "unowned" in result and "any writer" in result
+
+
+@respx.mock(base_url="http://localhost:8920")
+async def test_memory_keys_prefers_custodian_over_owner(respx_mock):
+    """After an estate transfer the CUSTODIAN controls the row, not the author.
+
+    Naming the original author here would send a reader to someone who can no
+    longer act on it.
+    """
+    respx_mock.post("/memory/keys").mock(return_value=_own2_keys_response([
+        {
+            "namespace": "fleet", "key": "state/transferred", "scope": "project",
+            "user_id": "claude-code", "project": "engram", "value_chars": 12,
+            "created_at": "2026-08-01T12:00:00+00:00", "status": None,
+            "owner": "departed-agent", "custodian": "ixanadu",
+        },
+    ]))
+    result = await memory_keys(prefix="state/", scope="project", project="engram")
+    assert "custodian:ixanadu" in result
+    assert "owner:departed-agent" not in result
+
+
+@respx.mock(base_url="http://localhost:8920")
+async def test_memory_keys_omits_ownership_outside_project_scope(respx_mock):
+    """Ownership is enforced for project scope only; claiming it elsewhere
+    would report a restriction that does not exist."""
+    respx_mock.post("/memory/keys").mock(return_value=_own2_keys_response([
+        {
+            "namespace": "fleet", "key": "wip/alpha", "scope": "machine",
+            "user_id": "hosta", "value_chars": 120,
+            "created_at": "2026-08-12T12:00:00+00:00", "status": None,
+            "owner": None, "custodian": None,
+        },
+    ]))
+    result = await memory_keys(prefix="wip/")
+    assert "owner" not in result and "partition:" not in result

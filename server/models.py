@@ -266,6 +266,18 @@ class KeyEntry(BaseModel):
     # Lifecycle, unfiltered: superseded rows are listed and MARKED, because a
     # census that hides corrected rows cannot prove a write ever happened.
     status: str | None = None
+    # OWN-2: WHO MAY WRITE, which `user_id` above does not say. `user_id` is
+    # the partition; OWN-1 ownership is by PRINCIPAL, recorded server-side in
+    # `owner` (and `custodian` when an estate was transferred, which takes
+    # precedence). Without these a listing reads "claude-code" on a row only
+    # `ixanadu` may write, and the reader learns otherwise from a 409 at the
+    # moment of the edit — after deciding what to do.
+    #
+    # NULL `owner` is NOT "author unknown": it is a row predating the column,
+    # and the write gate deliberately lets ANY writer through it. A renderer
+    # must say that rather than leave a blank, or the ambiguity simply moves.
+    owner: str | None = None
+    custodian: str | None = None
 
 
 class MemoryKeysResponse(BaseModel):

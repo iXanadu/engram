@@ -908,16 +908,6 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Owner's drivable menu — store & ops (start when the owner names one)
 
-- **OWN-2** `memory_keys` prints the partition `user_id` as the row's writer,
-  but OWN-1 ownership is by PRINCIPAL — so a listing can read "written by
-  claude-code" on a row only `ixanadu` may write, and the correction is
-  refused 409 at the moment of the edit rather than being visible when the
-  reader decides what to do. Measured 2026-08-23 correcting a stale
-  `state/*` row. The 409 itself is good (it names the owner); the listing is
-  what misleads. Show the owning principal in `memory_keys` output — or say
-  plainly that the column is the partition, not the owner.
-  `class:absence-vs-failure`.
-
 - **LIBRARIAN-SHIFT-1** ★ Owner direction 2026-08-18: the librarian role
   (judgment curation — GrokBot contributions via the mail protocol, MEM-7
   passes, estate decisions) runs as a DAILY SHIFT, not an always-on brain.

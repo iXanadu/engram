@@ -1418,10 +1418,27 @@ async def memory_keys(
     lines = []
     for k in keys:
         recency = _format_recency(k.get("created_at"))
+        # OWN-2: this used to print `user_id` BARE and unlabelled, so a reader
+        # took it for the author. It is the PARTITION. Ownership is by
+        # PRINCIPAL, and the two disagree exactly when it matters — a listing
+        # said "claude-code" on a row only `ixanadu` could write, and the
+        # correction was refused 409 at the moment of the edit, long after the
+        # reader had decided what to do. Label both, and only where ownership
+        # is actually enforced (project scope).
+        owner_bit = None
+        if resolved_scope == "project":
+            controller = k.get("custodian") or k.get("owner")
+            if controller:
+                label = "custodian" if k.get("custodian") else "owner"
+                owner_bit = f"{label}:{controller}"
+            else:
+                # NOT unknown — the write gate lets anyone through here.
+                owner_bit = "unowned (legacy, any writer)"
         bits = [b for b in (
             f"{k.get('value_chars', 0)}ch",
             recency or None,
-            k.get("user_id") if resolved_scope == "project" else None,
+            f"partition:{k.get('user_id')}" if resolved_scope == "project" else None,
+            owner_bit,
             "SUPERSEDED" if k.get("status") == "superseded" else None,
         ) if b]
         lines.append(f"{k['key']}  ({' · '.join(bits)})")

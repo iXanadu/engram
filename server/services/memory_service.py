@@ -727,6 +727,14 @@ async def memory_keys(
             SELECT namespace, key, scope, user_id, project, tags, created_at,
                    last_used_at, length(value) AS value_chars,
                    metadata->>'status' AS lifecycle_status,
+                   -- OWN-2: who may WRITE this row, which is not what
+                   -- `user_id` says. `user_id` is the PARTITION; ownership is
+                   -- by principal, recorded server-side in `owner` (and
+                   -- `custodian` when an estate was transferred). Without
+                   -- these the listing reads "claude-code" on a row only
+                   -- `ixanadu` may write, and the reader finds out at the 409
+                   -- — after deciding what to do.
+                   owner, custodian,
                    count(*) OVER () AS total
             FROM memories
             WHERE (expires_at IS NULL OR expires_at > NOW())
@@ -760,6 +768,12 @@ async def memory_keys(
             "last_used_at": r["last_used_at"],
             "value_chars": r["value_chars"],
             "status": r["lifecycle_status"],
+            # OWN-2. NULL owner is NOT unknown-authorship: it is a row that
+            # predates the column, which the write gate deliberately lets
+            # ANY writer through. Renderers must say that rather than leave a
+            # blank, or absence reads as ambiguity again.
+            "owner": r["owner"],
+            "custodian": r["custodian"],
         }
         for r in rows
     ]
