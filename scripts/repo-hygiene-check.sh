@@ -32,7 +32,7 @@ git rev-parse --git-dir >/dev/null 2>&1 || { echo "not a git checkout"; exit 2; 
 fail=0
 # Lines matching this are placeholders, not leaks: localhost targets, doc
 # example domains (RFC 2606), format-string/template braces, <angle> stubs.
-ALLOW='placeholder|@(localhost|127\.0\.0\.1)|example\.(com|org|net)|\{[A-Za-z_. ]+\}|<[^>]*>'
+ALLOW='placeholder|@email\.com|postgresql@|@(localhost|127\.0\.0\.1|test\.)|example\.(com|org|net)|users\.noreply\.github\.com|\{[A-Za-z_. ]+\}|<[^>]*>'
 scan() { # scan <label> <extended-regex> [extra grep args...]
   local label="$1" pattern="$2"; shift 2
   local hits n
@@ -69,8 +69,11 @@ scan "tailscale MagicDNS hostname"  '\b[a-z0-9-]+\.tail[0-9a-f]{4,}\.ts\.net\b'
 scan "US-format phone number" \
   '(\+1[-. ]?)?\(?[2-9][0-9]{2}\)?[-. ][0-9]{3}[-. ][0-9]{4}\b'
 # Emails: flag real-looking ones; allow example/test/noreply domains.
+# ERE, not -P: the system grep has no -P, and with stderr discarded this scan
+# had been failing silently since it was written. Doc/test domains are
+# excluded by ALLOW below instead of by a lookahead.
 scan "personal email address" \
-  '\b[A-Za-z0-9._%+-]+@(?!example\.|test\.|localhost)[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b' -P
+  '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
 
 # --- local denylist ----------------------------------------------------------
 # ⚠️ THIS BLOCK USED TO FAIL SILENTLY. If no denylist existed, the scan for
@@ -84,6 +87,12 @@ for DL in ".hygiene-denylist" "$HOME/.config/repo-hygiene/denylist"; do
     denylist_found=1
     while IFS= read -r pat; do
       case "$pat" in ''|\#*) continue;; esac
+      # A leading/trailing \b in the denylist means "the name as a whole
+      # token". ERE's \b treats '_' as a word character, so NAME_ENGRAM_URL
+      # and on_name slipped through the 2026-08-26 scrub AND this check.
+      # Translate to alphanumeric-only boundaries. Plain ERE on purpose:
+      # the grep xargs finds is the system one, which has no -P.
+      pat="$(printf '%s' "$pat" | sed -E 's/^\\b/(^|[^A-Za-z0-9])/; s/\\b$/([^A-Za-z0-9]|$)/')"
       scan "denylist: $pat" "$pat" -i
     done < "$DL"
   fi
