@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS request_log (
     via_public    BOOLEAN NOT NULL DEFAULT FALSE,
     -- OBS-SESSION-1: WHICH BOX and WHICH PROJECT, not just which credential.
     -- Every agent on the fleet authenticates as the same principal, so
-    -- `principal` alone cannot separate hosta from the other four machines —
+    -- `principal` alone cannot separate this host from the rest of the fleet —
     -- measured 2026-08-26, when answering "what does one session cost" needed
     -- local `ps` plus arithmetic and still could not see the remote boxes.
     -- Both values ride provenance headers the bridge ALREADY sends, so this

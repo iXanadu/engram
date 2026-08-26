@@ -40,7 +40,7 @@ die() { printf '⛔ %s\n' "$*" >&2; exit 1; }
 # second is defensible after the fact.
 say "── live sessions ──"
 # DEPLOY-6: this check spent its whole life printing "proceeding blind" on the
-# box we deploy FROM — there is no psql on hosta at all — so it never once
+# box we deploy FROM — there is no psql on this host at all — so it never once
 # listed a session, while reading like coverage. The SQL was always right; the
 # tool was simply absent. It now falls back to the app's own driver (asyncpg is
 # in the server venv by definition; psycopg is not installed anywhere).
