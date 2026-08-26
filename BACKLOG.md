@@ -424,6 +424,15 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   cc-memory-3.12) at a calm moment — announce, since its watcher/bridge
   restart with it.
 
+- **OBS-SESSION-1** *(measured 2026-08-26 while attempting CADENCE-1.)*
+  **`request_log` records which CREDENTIAL called, not which SESSION.** Every
+  agent on every box authenticates as the same shared principal, so the table
+  cannot answer "what does ONE session cost" — the question the log was built
+  to answer. Working around it needs local `ps` (hosta-only, so it silently
+  omits the four remote boxes) plus ratio arithmetic. CLASS: absence-vs-failure
+  — the query returns a confident number that is a fleet SUM, and nothing in
+  the result says so. Fix: stamp a session/nonce discriminator on the row.
+
 - **DEPLOY-3** graceful-deploy's 30s drain window is sized under the
   inbox-wait long-poll timeout, so a routine bounce reads as "still alive —
   investigate" while the old process is just draining held long-polls
@@ -674,6 +683,21 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   actually called and by which principal, then cut to fit.** Escalated from
   cleanup to PREREQUISITE the moment a vendor-hosted surface is pointed at
   that route. Detail: `vuln/public-surface-1` (project memory, until shipped).
+
+- **CADENCE-1** *(measured 2026-08-26; supersedes the "trim two polls"
+  framing, which the measurement killed.)* **Every session spends 5 HTTP
+  round-trips per 45s asking "anything new?"** — heartbeat, ear-beat,
+  `/memory/inbox`, `/memory/wake/poll`, watch-beat (plus watch-status and
+  claim). Measured over 2h fleet-wide: 4,539 bookkeeping calls against **68
+  calls of actual work — 1.4%**. The one safely-tunable knob (watcher ear-beat
+  45s→90s, still 3.3x inside the 300s `WATCHER_STALE_AFTER_SECONDS` window)
+  buys only ~8% and costs a five-box bridge sweep to collect — a poor trade,
+  deliberately NOT taken. The real fix is ONE "what's new" call per cycle
+  instead of five (~75%), but that changes how mail is fetched and so sits
+  against the 2026-08-23 freeze. NEEDS THE OWNER. Two theories died in
+  measurement first: the long-running bridges are not orphans (live parents),
+  and the ear-beat is not duplicate work (it records `watcher_alive`, a
+  different fact than the session heartbeat).
 
 - **ACK-BLIND-1** *(measured 2026-08-25.)* **`read_by`/`status` are not
   evidence that mail went unread, and we treated them as if they were.**
