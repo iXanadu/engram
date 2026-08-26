@@ -433,12 +433,24 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   — the query returns a confident number that is a fleet SUM, and nothing in
   the result says so. Fix: stamp a session/nonce discriminator on the row.
 
-- **DEPLOY-3** graceful-deploy's 30s drain window is sized under the
-  inbox-wait long-poll timeout, so a routine bounce reads as "still alive —
-  investigate" while the old process is just draining held long-polls
-  (measured 2026-08-18: exit at ~40s, script had already given up at 30s;
-  correctly refused SIGKILL). Fix: size the wait to the long-poll timeout
-  plus margin, or close wait connections on SIGTERM so drains are fast.
+- **DEPLOY-5** *(found 2026-08-26 while shipping DEPLOY-3.)* **graceful-deploy
+  reports the wrong CAUSE when its pull fails under sudo.** Root has no GitHub
+  host key, so `git pull` dies with "Host key verification failed" — and the
+  script prints `⛔ ff-only pull failed — prod has diverged, resolve by hand`.
+  Prod had not diverged; nothing was wrong with the tree. Anyone trusting that
+  line goes hunting a divergence that does not exist, mid-deploy. Fix: report
+  git's actual stderr, and distinguish "cannot reach the remote" from
+  "diverged". CLASS: absence-vs-failure — a confident wrong diagnosis costs
+  more than no diagnosis.
+
+- **DEPLOY-6** *(found 2026-08-26, same run.)* graceful-deploy's "live
+  sessions" pre-flight degrades to `(psql not on PATH — cannot list;
+  proceeding blind)` and proceeds anyway. There is no psql on hosta at all,
+  so this safety check has been inert on the box we deploy from — it never
+  once listed a live session. Either query through the app's own driver
+  (asyncpg is present; psycopg is not) or make the blindness loud enough to
+  stop a deploy. Same class as OBS-SESSION-1: the tool answers, and the answer
+  is that it did not look.
 
 - **GRANT-1** *(half (a) SHIPPED 2026-08-17 — parking a DISTINCTIVE
   preferred name is now loud on the claim's warning channel, naming the
