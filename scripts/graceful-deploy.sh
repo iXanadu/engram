@@ -109,7 +109,29 @@ if [[ $PULL -eq 1 ]]; then
         git fetch -q origin 2>/dev/null || true
         say "  would pull   : $PREV → $(git rev-parse --short origin/main 2>/dev/null || echo '?')"
     else
-        git pull --ff-only -q || die "ff-only pull failed — prod has diverged, resolve by hand"
+        # DEPLOY-5: this used to blame a divergence for EVERY pull failure.
+        # Measured 2026-08-26: under sudo the pull dies on "Host key
+        # verification failed" (root has its own known_hosts), and the script
+        # reported "prod has diverged" — sending the operator to hunt a
+        # divergence that did not exist, mid-deploy. Report what git said, and
+        # only say "diverged" when git says so.
+        if ! PULL_ERR="$(git pull --ff-only 2>&1)"; then
+            case "$PULL_ERR" in
+                *"Host key verification failed"*|*"Could not read from remote"*|\
+                *"Could not resolve host"*|*"Connection refused"*|\
+                *"Connection timed out"*|*"Permission denied"*)
+                    die "cannot reach the remote — the prod tree is FINE, nothing has diverged.
+   git said: ${PULL_ERR}
+   If this ran under sudo: root has its own SSH keys and known_hosts. Pull as
+   the tree's owner, then rerun this script with --no-pull." ;;
+                *"Not possible to fast-forward"*|*"non-fast-forward"*|*"diverge"*)
+                    die "ff-only pull refused — prod HAS diverged from origin, resolve by hand.
+   git said: ${PULL_ERR}" ;;
+                *)
+                    die "pull failed — cause not recognised, so it is quoted rather than guessed.
+   git said: ${PULL_ERR}" ;;
+            esac
+        fi
         say "  now at       : $(git rev-parse --short HEAD)"
     fi
 fi

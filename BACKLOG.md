@@ -446,16 +446,6 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   measures and narrower than what its reader will take it to mean. Same family
   as the stale pins corrected in this room the same evening.
 
-- **DEPLOY-5** *(found 2026-08-26 while shipping DEPLOY-3.)* **graceful-deploy
-  reports the wrong CAUSE when its pull fails under sudo.** Root has no GitHub
-  host key, so `git pull` dies with "Host key verification failed" — and the
-  script prints `⛔ ff-only pull failed — prod has diverged, resolve by hand`.
-  Prod had not diverged; nothing was wrong with the tree. Anyone trusting that
-  line goes hunting a divergence that does not exist, mid-deploy. Fix: report
-  git's actual stderr, and distinguish "cannot reach the remote" from
-  "diverged". CLASS: absence-vs-failure — a confident wrong diagnosis costs
-  more than no diagnosis.
-
 - **GRANT-1** *(half (a) SHIPPED 2026-08-17 — parking a DISTINCTIVE
   preferred name is now loud on the claim's warning channel, naming the
   parked address, the reason, and the drain path; base-name preferences
