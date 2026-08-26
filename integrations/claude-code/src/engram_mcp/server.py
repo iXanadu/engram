@@ -1662,6 +1662,19 @@ async def memory_supersede(
         )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
+            # MEM-9: the server distinguishes "already superseded" from "never
+            # existed" and says which. This used to DISCARD that detail and
+            # substitute a generic miss, so the honest answer never reached the
+            # caller — two seats read an operation that had already succeeded
+            # as a permission refusal. Surface what the server said; fall back
+            # to our own wording only when it said nothing useful.
+            detail = ""
+            try:
+                detail = (e.response.json() or {}).get("detail") or ""
+            except Exception:
+                detail = ""
+            if detail:
+                return str(detail)
             return (
                 f"No live row '{key}' under writer '{target_user_id}' here. "
                 f"Check the search hit's user_id and namespace fields — and "

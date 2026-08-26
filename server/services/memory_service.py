@@ -1150,6 +1150,59 @@ async def memory_supersede(
     return dict(row) if row else None
 
 
+async def supersede_stamp(
+    *,
+    namespaces: list[str],
+    key: str,
+    project: str | None,
+    target_user_id: str | None,
+    scope: str = "project",
+) -> dict | None:
+    """MEM-9: the lifecycle stamp on a row that is ALREADY superseded.
+
+    ``memory_supersede`` guards on ``status <> 'superseded'``, so a second
+    attempt matches nothing and comes back as None — indistinguishable from a
+    row that never existed. Measured 2026-08-22 18:30Z: two seats retried a
+    supersede the store had already performed and both read the answer as
+    "permission refused / row not found". The work was done; the reply said it
+    was not.
+
+    This exists only to tell those two cases apart, so the caller is told what
+    actually happened rather than being handed the vocabulary of a miss.
+    Returns None when there is genuinely no such row.
+    """
+    scope = (scope or "project").lower()
+    if scope == "shared":
+        project = None
+    _, key, _, target, project = _normalize_key_fields(
+        key=key, scope=scope, user_id=target_user_id, project=project
+    )
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT metadata FROM memories
+            WHERE namespace = ANY($1::text[]) AND key = $2 AND scope = $5
+              AND user_id IS NOT DISTINCT FROM $3
+              AND project IS NOT DISTINCT FROM $4
+              AND metadata->>'status' = 'superseded'
+            """,
+            [ns.lower() for ns in namespaces], key, target, project, scope,
+        )
+    if not row:
+        return None
+    md = row["metadata"]
+    if isinstance(md, str):
+        md = json.loads(md)
+    md = md or {}
+    return {
+        "superseded_at": md.get("superseded_at"),
+        "superseded_by_principal": md.get("superseded_by_principal"),
+        "superseded_reason": md.get("superseded_reason"),
+        "superseded_by_key": md.get("superseded_by_key"),
+    }
+
+
 # --- Inbox operations ----------------------------------------------------
 #
 # Inbox messages are ordinary rows in the `memories` table with:

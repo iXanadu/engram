@@ -88,6 +88,7 @@ from server.services.memory_service import (
     memory_search,
     memory_set,
     memory_supersede,
+    supersede_stamp,
     partition_siblings,
     presence_farewell,
     presence_update,
@@ -678,6 +679,36 @@ async def supersede_memory(req: MemorySupersedeRequest, request: Request):
             "in shared scope" if req.scope == "shared"
             else f"in project '{req.project}'"
         )
+        # MEM-9: "already done" and "never existed" used to share one sentence.
+        # Measured 2026-08-22 18:30Z: two seats retried a supersede the store
+        # had ALREADY performed — stamped, attributed, replacement set — and
+        # both read the 404 as "permission refused / row not found". The work
+        # was done and the answer said it was not. Look before answering, and
+        # if it was already retired, say so with the receipt.
+        stamp = await supersede_stamp(
+            namespaces=ns_candidates,
+            key=req.key,
+            project=req.project,
+            target_user_id=req.target_user_id,
+            scope=req.scope,
+        )
+        if stamp:
+            who = stamp.get("superseded_by_principal") or "an unrecorded actor"
+            when = stamp.get("superseded_at") or "an unrecorded time"
+            extra = ""
+            if stamp.get("superseded_by_key"):
+                extra = f", replaced by '{stamp['superseded_by_key']}'"
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"'{req.key}' under writer '{req.target_user_id}' {where} "
+                    f"was ALREADY superseded at {when} by {who}{extra} — so "
+                    f"there is no live row to stamp. This is not a permission "
+                    f"refusal and not a missing row: the retirement you asked "
+                    f"for has already happened. Read it with "
+                    f"include_superseded=true."
+                ),
+            )
         raise HTTPException(
             status_code=404,
             detail=(
