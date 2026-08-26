@@ -38,6 +38,8 @@ async def record_request(
     status: int,
     duration_ms: int,
     via_public: bool = False,
+    machine: str | None = None,
+    project: str | None = None,
 ) -> None:
     """Write one request row. Never raises — observability must not be able to
     fail a request that otherwise succeeded."""
@@ -48,11 +50,11 @@ async def record_request(
                 """
                 INSERT INTO request_log
                     (principal, auth_source, method, path, status, duration_ms,
-                     via_public)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                     via_public, machine, project)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 """,
                 principal, auth_source, method, path, status, duration_ms,
-                via_public,
+                via_public, machine, project,
             )
     except Exception:
         # Deliberately swallowed and logged, not re-raised. A failure to

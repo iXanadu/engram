@@ -424,14 +424,18 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   cc-memory-3.12) at a calm moment — announce, since its watcher/bridge
   restart with it.
 
-- **OBS-SESSION-1** *(measured 2026-08-26 while attempting CADENCE-1.)*
-  **`request_log` records which CREDENTIAL called, not which SESSION.** Every
-  agent on every box authenticates as the same shared principal, so the table
-  cannot answer "what does ONE session cost" — the question the log was built
-  to answer. Working around it needs local `ps` (hosta-only, so it silently
-  omits the four remote boxes) plus ratio arithmetic. CLASS: absence-vs-failure
-  — the query returns a confident number that is a fleet SUM, and nothing in
-  the result says so. Fix: stamp a session/nonce discriminator on the row.
+- **OBS-SESSION-1** *(partly shipped 2026-08-26 — machine+project landed; the
+  per-session half is deliberately NOT built.)* `request_log` records which
+  CREDENTIAL called, and every agent fleet-wide shares one, so it could not
+  separate this box from the other four. **SHIPPED:** `machine` and `project`
+  columns, populated from provenance headers the bridge already sends — no
+  client change, no fleet sweep. That answers the question that actually bit
+  (local vs remote origin). **STILL OPEN, low:** a true per-SESSION
+  discriminator, which needs a new header from the bridge and therefore a
+  five-box sweep — not worth it on its own, but ride it along with the next
+  bridge change that has to sweep anyway. CLASS: absence-vs-failure — until
+  this, the query returned a confident number that was a fleet SUM and nothing
+  in the result said so.
 
 - **WAKE-STATUS-1** *(measured from OUTSIDE this box by projalpha-claude-6,
   2026-08-26, across an engram prod bounce.)* **`memory_status` read COVERED

@@ -118,6 +118,15 @@ CREATE TABLE IF NOT EXISTS request_log (
     -- header). Lets the trail separate internet traffic from tailnet/local —
     -- the question PUBLIC-SURFACE-1 has to answer before the allowlist is cut.
     via_public    BOOLEAN NOT NULL DEFAULT FALSE,
+    -- OBS-SESSION-1: WHICH BOX and WHICH PROJECT, not just which credential.
+    -- Every agent on the fleet authenticates as the same principal, so
+    -- `principal` alone cannot separate hosta from the other four machines —
+    -- measured 2026-08-26, when answering "what does one session cost" needed
+    -- local `ps` plus arithmetic and still could not see the remote boxes.
+    -- Both values ride provenance headers the bridge ALREADY sends, so this
+    -- costs no client change and no fleet sweep.
+    machine       TEXT,
+    project       TEXT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_request_log_created ON request_log (created_at);
@@ -133,6 +142,9 @@ CREATE INDEX IF NOT EXISTS idx_request_log_path ON request_log (path, created_at
 # Migration: add namespace column to tables created before this column existed.
 MIGRATE_SQL = """
 ALTER TABLE request_log ADD COLUMN IF NOT EXISTS via_public BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE request_log ADD COLUMN IF NOT EXISTS machine TEXT;
+ALTER TABLE request_log ADD COLUMN IF NOT EXISTS project TEXT;
+CREATE INDEX IF NOT EXISTS idx_request_log_machine ON request_log (machine, created_at);
 CREATE INDEX IF NOT EXISTS idx_request_log_public ON request_log (via_public, created_at);
 DO $$
 BEGIN

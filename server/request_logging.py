@@ -20,6 +20,17 @@ from server.services.request_log import record_request, should_log
 
 logger = logging.getLogger(__name__)
 
+# Client-supplied, so bounded before it reaches the table — an unbounded
+# header is a free write amplifier.
+_MAX_PROVENANCE = 64
+
+
+def _clip(value):
+    """Trim a provenance header to something safe to store; None stays None."""
+    if not value:
+        return None
+    return value.strip()[:_MAX_PROVENANCE] or None
+
 
 class RequestLogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -55,4 +66,11 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
                     settings.public_proxy_header
                     and request.headers.get(settings.public_proxy_header)
                 ),
+                # OBS-SESSION-1: provenance the bridge already sends on every
+                # call. Recorded, never trusted — a client can set these, so
+                # they answer "which box says it called" and are not evidence
+                # against a caller that lies. That is enough for the question
+                # they exist for: separating our own fleet's traffic by origin.
+                machine=_clip(request.headers.get("x-engram-machine")),
+                project=_clip(request.headers.get("x-engram-project")),
             )
