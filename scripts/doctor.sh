@@ -79,14 +79,24 @@ check_postgres_owner() {
     # 'launchctl print system/<label>' is readable unprivileged (verified on
     # this box) — keep sudo -n only as a fallback so a scheduler context
     # without a sudo grant still gets a real answer, not a false page.
-    local daemon_loaded=0 agent_plists
-    if launchctl print system/com.hosta.postgresql >/dev/null 2>&1 \
-        || sudo -n launchctl print system/com.hosta.postgresql >/dev/null 2>&1; then
-        daemon_loaded=1
-    fi
+    local daemon_loaded=0 agent_plists lbl found_label=""
+    # DERIVE the label from disk — never hardcode one. It used to be a literal
+    # containing this box's hostname, and a 2026-08-26 public-repo scrub
+    # rewrote that hostname as if it were prose. The check then looked for a
+    # job that does not exist and reported "NO launchd job owns postgres"
+    # while a job DID own it, with keepalive, PID matching the live process.
+    # A monitor that cries wolf gets ignored, so this must not depend on a
+    # name that a rename can silently invalidate.
+    for lbl in $(ls /Library/LaunchDaemons/ 2>/dev/null \
+                   | grep -i postgres | sed 's/\.plist$//'); do
+        if launchctl print "system/$lbl" >/dev/null 2>&1 \
+            || sudo -n launchctl print "system/$lbl" >/dev/null 2>&1; then
+            daemon_loaded=1; found_label="$lbl"; break
+        fi
+    done
     agent_plists=$(ls "$HOME/Library/LaunchAgents/" 2>/dev/null | grep -ci "postgres" || true)
     if [ "$daemon_loaded" -eq 1 ] && [ "$agent_plists" -eq 0 ]; then
-        CH_STATUS=ok; CH_DETAIL="system daemon only (no login-agent plist)"
+        CH_STATUS=ok; CH_DETAIL="system daemon only, no login-agent plist (${found_label})"
     elif [ "$daemon_loaded" -eq 0 ] && [ "$agent_plists" -gt 0 ]; then
         CH_STATUS=crit; CH_DETAIL="LOGIN AGENT owns postgres — headless reboot leaves the store down until someone logs in"
     elif [ "$daemon_loaded" -eq 1 ] && [ "$agent_plists" -gt 0 ]; then

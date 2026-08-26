@@ -421,16 +421,6 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Blocking-ish — ops gaps that cost live sessions today
 
-- **PG-OWNER-1** *(surfaced by `scripts/doctor.sh` 2026-08-26; PRE-EXISTING,
-  not from that evening's work.)* **`postgres_owner: NO launchd job owns
-  postgres`.** A launchd job for it exists but shows exit `-9`, and the live
-  postgres process is parented to init — so it runs detached. **If postgres
-  dies, nothing restarts it**, and every service on this box depends on it.
-  Not urgent while it is up; it is a single point of failure with no
-  supervisor. Fix: re-establish ownership so the job supervises the running
-  process, then PROVE it by killing postgres and watching it return. CLASS:
-  absence-vs-failure — "it is running" is not "it will be running".
-
 - **PYVER-1** Fleet Python patch drift, measured 2026-08-18: within every
   box the server venv and bridge venv MATCH (the owner's feared skew does
   not exist), but BETWEEN boxes hostb runs 3.12.0 — the original release,
