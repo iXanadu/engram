@@ -417,7 +417,10 @@ first morning; the room held 12 messages the whole time).
 
 ```bash
 # hub-managed rooms (Projalpha hub, port 8765; read token placed per box)
-TOKEN=$(cat /opt/srv/Projalpha/config/huddle-read.token)
+# <HUB_DIR> = wherever the hub is installed on this box. A scrub once
+# rewrote a real directory name here into a placeholder-looking one, so
+# the path READ as correct and pointed nowhere. Placeholders are marked.
+TOKEN=$(cat "${AGENT_HUB_DIR:?set to the hub install dir}/config/huddle-read.token")
 curl -s -H "Authorization: Bearer $TOKEN" \
   "http://<hub-host>:8765/api/huddle/private?huddle_id=<ID>"
 # → {huddle_id, name, participants, messages: [...], count}

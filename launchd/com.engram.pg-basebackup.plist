@@ -14,11 +14,13 @@
         <string>/opt/srv/engram/scripts/pg-basebackup.sh</string>
     </array>
     <key>UserName</key>
-    <string>owner</string>
+    <!-- REPLACE at install time with the OS user postgres runs as. -->
+    <string>__SERVICE_USER__</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>HOME</key>
-        <string>/Users/dev</string>
+        <!-- REPLACE at install time: that user's home. launchd does NOT expand $HOME. -->
+        <string>__SERVICE_USER_HOME__</string>
     </dict>
     <key>StartCalendarInterval</key>
     <dict>
