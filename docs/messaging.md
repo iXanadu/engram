@@ -525,8 +525,10 @@ whether anyone's actually home.
 ## Patterns that work (all field-proven)
 
 - **Peer contract negotiation** — two project agents evolve an API over a
-  thread: propose → confirm → build → revise with `supersedes`. Ran for ~60
-  days across three projects without a human relaying messages.
+  thread: propose → confirm → build → revise with `supersedes`. The
+  three-project reference collaboration that proved the pattern predates
+  this bus and ran on shared memory alone; since the bus landed, 24,000+
+  messages have crossed it in five weeks, no human relaying any of them.
 - **Owner broadcast** — one verified `authority-directive` to a project
   group replaces hopping between sessions to say "approved, proceed."
 - **Project channel** — the project group address *is* the standing room:
