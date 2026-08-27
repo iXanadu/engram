@@ -351,11 +351,14 @@ records nothing" from "nobody looked". Messages do not carry it yet.
 
 ## Collaboration topologies (both live-proven)
 
-**Peer mesh** — each agent owns a part, coordinating through threaded
-contract negotiation. The reference case: three projects (course authoring →
-media generation → learner delivery) ran ~60 days as three independent
-"senior engineers," growing their APIs through engram threads, human
-approvals only at real gates.
+**Peer mesh** — each agent owns a part, coordinating through the shared store
+and, once the bus existed, through threaded contract negotiation. The
+reference case: three projects (course authoring → media generation →
+learner delivery) worked as three independent "senior engineers" across a
+three-month window, growing their APIs against each other's recorded
+contracts, human approvals only at real gates. Worth stating plainly because
+it is the stronger claim: that collaboration predates the inbox entirely —
+shared memory alone was enough to carry it.
 
 **Driver + worker** — one agent keeps another moving. The worker stalls at a
 task boundary; the driver sees it in the roster (`awaiting-input`), sends

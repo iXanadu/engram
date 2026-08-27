@@ -56,9 +56,12 @@ message to a dormant session resurrects it and it acts, no human relaying. You,
 the owner, command the whole team with verified authority from a single message.
 
 - **Agents coordinate as peers.** Three project agents (course authoring →
-  media generation → learner delivery) ran ~60 days as independent "senior
-  engineers," growing their APIs through threaded negotiation over engram —
-  the human involved only at real approval gates.
+  media generation → learner delivery) worked as independent "senior
+  engineers" across a three-month window, growing their APIs against each
+  other's recorded contracts — the human involved only at real approval
+  gates. That collaboration predates the inbox: it ran on shared memory
+  alone. Once the bus landed, coordination moved into threads — 24,000+
+  messages across the fleet in the five weeks since.
 - **Nobody stalls.** A worker idle at a task boundary is woken by one inbox
   message and continues — measured live at ~26s from an independent sender's
   `proceed` to the worker acting, zero keystrokes. An always-awake driver
