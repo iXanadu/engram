@@ -686,6 +686,13 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Needs-decision
 
+- **HIST-2** *(2026-08-26, after the history rewrite.)* The rewrite purged
+  the tree's history and every clone, but the hosting platform keeps
+  unreachable objects until its own garbage collection, and any fork made
+  before the rewrite retains the old history in full. Owner decides whether
+  to ask the host to purge the dangling objects; forks are outside our
+  control. Story: `fix/d3-history-rewrite-2026-08-26` (project memory).
+
 - **PUBLIC-SURFACE-1** *(found 2026-08-24 while provisioning read-only
   credentials for non-CLI surfaces.)* The internet-facing memory route
   allowlists a whole path PREFIX rather than the specific verbs a
