@@ -1,23 +1,5 @@
 # Tiding
 
-> # ⚠️ THIS IS A PUBLIC REPOSITORY
->
-> **Anything committed here is world-readable, permanently, and cannot be
-> un-published — git history outlives any later deletion.**
->
-> Never commit: real hostnames or fleet topology · internal project, product
-> or client names · personal paths (`/Users/<someone>`) · real domains ·
-> credentials, tokens or keys · private/LAN/tailnet IPs · phone numbers or
-> personal emails · customer content.
->
-> Use generic placeholders instead (`hosta`, `projalpha`, `example.com`,
-> `/Users/dev`). Internal detail belongs in engram memory, never in the tree.
->
-> **Before every commit: `scripts/repo-hygiene-check.sh` — and it must say
-> `denylist enforced`.** Without a local `.hygiene-denylist` it does NOT check
-> names, and "clean" means less than it looks.
-
-
 **Durable, shared, semantic memory for your AI agents — plus a message bus so they work as a team.**
 
 > **Tiding is the new name for engram** (renamed August 2026). The rename is
@@ -33,7 +15,7 @@ session-to-session handoffs persist and come back by *meaning*, not an exact key
 
 ### A memory that survives the session
 
-An agent opens by searching engram for where it left off — the last decision,
+An agent opens by searching Tiding for where it left off — the last decision,
 the open work, the handoff note — and closes by writing the next one. This repo
 manages its *own* project state this way: no state files, everything in
 searchable memory. Every session starts by recovering context and ends by
@@ -77,10 +59,10 @@ the owner, command the whole team with verified authority from a single message.
   only it wakes, post to the group and all of them do. No identity juggling,
   no collisions.
 
-**Where it fits:** engram is a durable *shared* memory store first — hybrid
+**Where it fits:** Tiding is a durable *shared* memory store first — hybrid
 semantic + trigram search over Postgres/pgvector — with an inbox and presence
 layer on top so agents coordinate as peers. It sits alongside per-agent memory
-tooling, not against it: point your agents at engram for the memory they should
+tooling, not against it: point your agents at Tiding for the memory they should
 *share*, and for the messaging that makes several agents one team.
 Single-operator by design: you run your own instance; every adopter runs theirs.
 
@@ -105,7 +87,7 @@ curl -s -H "Content-Type: application/json" \
 [Build a huddle (group chat)](docs/build-a-huddle.md) ·
 [Multi-provider (Claude+Grok+Codex)](docs/multi-provider.md)
 
-> **Storage is PostgreSQL only** (pgvector + pg_trgm, via asyncpg) — **never SQLite.** Engram's archived ancestor `ha-semantic-memory` used SQLite; that project is deprecated and unrelated to engram's storage.
+> **Storage is PostgreSQL only** (pgvector + pg_trgm, via asyncpg) — **never SQLite.** Tiding's archived ancestor `ha-semantic-memory` used SQLite; that project is deprecated and unrelated to Tiding's storage.
 >
 > **Secure by default:** binds `127.0.0.1`; a network-reachable bind without
 > auth refuses to start. See [security posture](docs/getting-started.md#️-security-posture--read-this-before-exposing-anything).
@@ -264,7 +246,7 @@ Store or update a memory.
 | `project` | string | `null` | Project name (required when scope=project, null for other scopes) |
 | `tags` | string | `""` | Comma-separated keywords for search boosting |
 | `tags_search` | string | `""` | Additional search-optimized tags |
-| `expiration_days` | int | `0` | `0` = never expires (default — engram is a durable store). Set a positive value only for genuinely ephemeral memories. |
+| `expiration_days` | int | `0` | `0` = never expires (default — Tiding is a durable store). Set a positive value only for genuinely ephemeral memories. |
 | `if_match` | string | `null` | Optional **conditional write**. Set it to the `version` you last read and the write proceeds only if the stored value is unchanged; otherwise `409`. `""` asserts the key does not exist yet (create-only). Omit for an unconditional write. |
 
 Response fields worth knowing:
