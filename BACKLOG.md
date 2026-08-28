@@ -439,6 +439,25 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Blocking-ish — ops gaps that cost live sessions today
 
+- **HYGIENE-IMG-1** *(2026-08-28: a screenshot carrying a real host's service
+  inventory reached a public repo. It PASSED both the text scan and the
+  metadata scan — the leak was rendered pixels.)*
+  `class:a-check-blind-to-the-failure-mode-reports-success`
+  **`scripts/repo-hygiene-check.sh` cannot see inside an image, and does not
+  say so.** Its "clean" verdict is read as "safe to publish", which is false
+  for any added image: grep, strings and metadata tools read bytes, never
+  pixels. One screenshot can publish an entire service topology in a single
+  frame, and on a public repo `git rm` does not unpublish it — the blob stays
+  fetchable at that commit forever.
+  FIX SHAPE (cheap, no image parsing): make the check ENUMERATE image files
+  added since the last check / in the staged set, and print a REQUIRED-REVIEW
+  line naming each one — loudest for names matching shot|screen|capture|grab.
+  It must not claim "clean" while unreviewed images are present; the honest
+  output is "clean (text) — N images NOT checked, open them".
+  Then propagate to the template repos that copied this script.
+  · Status: OPEN · Root: the checker's scope was never stated in its own output
+  · Found: tiding-website launch
+
 - **PYVER-1** Fleet Python patch drift, measured 2026-08-18: within every
   box the server venv and bridge venv MATCH (the owner's feared skew does
   not exist), but BETWEEN boxes hostb runs 3.12.0 — the original release,
