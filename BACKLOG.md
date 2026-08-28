@@ -1,10 +1,9 @@
-# engram — BACKLOG (open items only)
+# Tiding — BACKLOG (open items only)
 
-> # ⚠️ THIS FILE IS IN A PUBLIC REPOSITORY — write every line as if a
-> # stranger will read it, because one can.
-> No real hostnames, internal project/client names, personal paths, real
-> domains, credentials, topology, or exploit detail. Generic placeholders
-> only. Internal detail goes to engram memory.
+> Public repository — write every line as if a stranger will read it. No real
+> hostnames, internal project or client names, personal paths, real domains,
+> credentials, topology or exploit detail. Placeholders only; internal detail
+> goes to project memory.
 >
 > Open work only. Done = delete the line (its story lives in the commit and in
 > memory). No secrets, PII, client names, topology, or exploit detail — this

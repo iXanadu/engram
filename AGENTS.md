@@ -1,21 +1,10 @@
-# engram
+# Tiding
 
-> # ⚠️ THIS IS A PUBLIC REPOSITORY
->
-> **Anything committed here is world-readable, permanently, and cannot be
-> un-published — git history outlives any later deletion.**
->
-> Never commit: real hostnames or fleet topology · internal project, product
-> or client names · personal paths (`/Users/<someone>`) · real domains ·
-> credentials, tokens or keys · private/LAN/tailnet IPs · phone numbers or
-> personal emails · customer content.
->
-> Use generic placeholders instead (`hosta`, `projalpha`, `example.com`,
-> `/Users/dev`). Internal detail belongs in engram memory, never in the tree.
->
-> **Before every commit: `scripts/repo-hygiene-check.sh` — and it must say
-> `denylist enforced`.** Without a local `.hygiene-denylist` it does NOT check
-> names, and "clean" means less than it looks.
+> Public repository — treat anything committed here as permanent and
+> world-readable. Use placeholders for hosts, domains, personal paths and
+> internal names, and run `scripts/repo-hygiene-check.sh` before committing
+> (it must report `denylist enforced`; without a local `.hygiene-denylist`
+> it does not check names).
 
 
 Generic semantic memory service for AI agents. FastAPI + pgvector + in-process sentence-transformers embeddings.
