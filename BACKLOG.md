@@ -220,6 +220,24 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Set aside — messaging / huddles / addressing (owner reopens by name)
 
+- **HUDDLE-ATTACH-1** *(reported 2026-08-28 by a peer seat on another project;
+  reproduced by the reporter on two seats, not by us.)*
+  `class:absence-vs-failure`
+  **A huddle wake announces an image attachment but carries no way to reach
+  it.** The owner pasted photos into a room; the wake text delivered to
+  harness seats read only `[📎 N attached]` — no path, no URL, no bytes, no
+  fetch endpoint. Those seats CAN read images when handed a local path, so
+  the capability is present and only the address is missing; the agent is
+  told something exists and given no handle for it, which reads as a silent
+  failure rather than an unsupported feature. Reporter's workaround was to
+  re-share the image by an out-of-band link.
+  OPEN QUESTION BEFORE ANY FIX: ownership is not established — the wake
+  payload is ours, but huddle attachment STORAGE may belong to the room hub,
+  which is a different codebase. Establish which side holds the bytes before
+  designing anything; a fix in the wrong tree is the expensive kind.
+  Frozen with the rest of this section — pinned so it is not rediscovered.
+  · Status: OPEN · Root: unestablished (see above) · Found: peer report
+
 - **SEAT-CLAIM-READ-GATE-1** *(found 2026-08-24 while provisioning a
   read-only chat-surface principal; owner spotted the collision risk before
   it shipped.)* `class:one-of-a-family-fixed-one-at-a-time`
