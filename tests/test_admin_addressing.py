@@ -60,7 +60,7 @@ def test_expansion_only_fires_for_bare_role_listeners():
     # Idempotent: a swept bridge that already declares it gains nothing.
     assert admin_listen_expansion(["admin", ADMIN_FLEET]) == []
     # Non-admin readers are untouched.
-    assert admin_listen_expansion(["engram", "machine:macmini"]) == []
+    assert admin_listen_expansion(["engram", "machine:hostc"]) == []
     # Host-qualified-only listener is not a bare-role listener.
     assert admin_listen_expansion(["admin@hosta"]) == []
 
@@ -82,7 +82,7 @@ async def test_admin_fleet_reaches_an_unswept_admin_session(client, db_pool):
         "to": ADMIN_FLEET,
         "subject": "fleet-wide notice",
         "body": "every box: rotate the thing",
-        "from_": "engram@macmini",
+        "from_": "engram@hostc",
     })
     assert resp.status_code == 200, resp.text
     msg_id = resp.json()["id"]
@@ -99,8 +99,8 @@ async def test_admin_fleet_reaches_an_unswept_admin_session(client, db_pool):
 
     # A non-admin reader must NOT pick up fleet-wide admin mail.
     resp = await client.post("/memory/inbox", json={
-        "listen_set": ["engram", "machine:macmini", "engram@macmini"],
-        "reader_identity": "engram@macmini",
+        "listen_set": ["engram", "machine:hostc", "engram@hostc"],
+        "reader_identity": "engram@hostc",
         "unread_only": True,
     })
     assert resp.status_code == 200
@@ -117,7 +117,7 @@ async def test_host_qualified_admin_mail_stays_on_its_box(client, db_pool):
         "to": "admin@hosta",
         "subject": "hosta only",
         "body": "restart the hosta thing",
-        "from_": "engram@macmini",
+        "from_": "engram@hostc",
     })
     assert resp.status_code == 200, resp.text
     msg_id = resp.json()["id"]
@@ -157,7 +157,7 @@ async def test_bare_admin_is_accepted_while_the_gate_is_off(client, db_pool):
         "to": "admin",
         "subject": "legacy path",
         "body": "still delivered while the gate is closed",
-        "from_": "engram@macmini",
+        "from_": "engram@hostc",
     })
     assert resp.status_code == 200, resp.text
     await _cleanup_inbox(db_pool)
@@ -171,7 +171,7 @@ async def test_bare_admin_is_refused_loudly_when_enforced(client, db_pool):
             "to": "admin",
             "subject": "which box?",
             "body": "this cannot say which machine it means",
-            "from_": "engram@macmini",
+            "from_": "engram@hostc",
         })
     assert resp.status_code == 409, resp.text
     detail = resp.json()["detail"]
@@ -192,7 +192,7 @@ async def test_qualified_forms_survive_enforcement(client, db_pool):
                 "to": target,
                 "subject": "fine",
                 "body": "names a target",
-                "from_": "engram@macmini",
+                "from_": "engram@hostc",
             })
             assert resp.status_code == 200, f"{target} refused: {resp.text}"
     await _cleanup_inbox(db_pool)
@@ -207,7 +207,7 @@ async def test_fanout_containing_bare_admin_is_refused(client, db_pool):
             "to": ["engram", "admin"],
             "subject": "mixed",
             "body": "one target names no machine",
-            "from_": "engram@macmini",
+            "from_": "engram@hostc",
         })
     assert resp.status_code == 409, resp.text
     await _cleanup_inbox(db_pool)

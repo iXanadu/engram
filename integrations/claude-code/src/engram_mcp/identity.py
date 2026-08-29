@@ -44,6 +44,13 @@ ADMIN_EXEMPT_LANE_PROJECTS = {ADMIN_NAME}
 # one the sender meant; `admin@fleet` says "all of you" on purpose.
 ADMIN_ROLE = ADMIN_NAME
 ADMIN_FLEET = f"{ADMIN_ROLE}@fleet"
+# Identities that are a ROLE worn simultaneously on several boxes rather than
+# one session. The roster must never offer the bare name as a DM address for
+# these: it reaches every box at once and the reader cannot tell which was
+# meant. Kept as a set because the two-axis doctrine allows more such roles
+# later; `admin` is the only one today (SEAT_EXEMPT_IDENTITIES server-side is
+# the same idea from the collision detector's side).
+SHARED_ROLE_IDENTITIES = {ADMIN_ROLE}
 
 # Opt-in per-session inbox identity. When set, this session is ADDRESSED as
 # ``<value>@<host>`` and sends FROM that identity, while still joining its

@@ -438,6 +438,23 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Blocking-ish — ops gaps that cost live sessions today
 
+- **HYGIENE-UNTRACKED-1** *(measured 2026-08-29 by walking into it: the check
+  returned "clean (denylist enforced)" on a commit that carried a denylisted
+  name, and the name reached the public remote.)*
+  `class:absence-vs-failure`
+  `scripts/repo-hygiene-check.sh` enumerates with `git ls-files`, so it scans
+  TRACKED files ONLY. A NEW file is untracked until the moment it is committed —
+  so the check is structurally blind to exactly the files most likely to carry a
+  fresh leak, and reports "clean" about content it never opened. Same class as
+  HYGIENE-IMG-1: the instrument cannot see the thing and says clean anyway.
+  FIX SHAPE: enumerate tracked files PLUS untracked-not-ignored
+  (`git ls-files -o --exclude-standard`), so a new file is covered on its first
+  run rather than one commit late. Then say in the output WHAT was scanned
+  (counts by class), so "clean" carries its own scope — a clean result that
+  cannot state its coverage is the defect, not the miss.
+  Consider also wiring it as a pre-commit hook: the working tree is exactly when
+  the answer is still cheap to act on.
+
 - **ADMIN-ADDR-1 (phases b–d)** *(server + bridge halves SHIPPED; enforcement is
   gated OFF until the fleet is swept. Owner ruled the item outside the messaging
   freeze and named `admin@fleet` as the broadcast form.)*

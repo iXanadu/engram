@@ -16,6 +16,8 @@ from engram_mcp.client import MemoryClient, last_server_time_iso
 from engram_mcp.client import AUTH_REFUSAL_LIMIT, auth_health, auth_is_refused
 from engram_mcp.config import CONFIG_SOURCE, settings
 from engram_mcp.identity import (
+    ADMIN_ROLE,
+    SHARED_ROLE_IDENTITIES,
     qualify_admin_target,
     INBOX_IDENTITY_ENV,
     admin_was_fallback,
@@ -2222,6 +2224,7 @@ async def memory_roster(
     exited = []
     # WATCH-RENDER-1: seats whose watcher beats but holds no live claim.
     unowned = []
+    shared_role_hosts: list[tuple[str, str, list[str]]] = []
     for e in entries:
         stale = " ⚠️ STALE" if e.get("is_stale") else ""
         age = int(e.get("age_seconds") or 0)
@@ -2301,14 +2304,51 @@ async def memory_roster(
             # line to three wrong conclusions about a live address in one
             # morning. Say what the column KNOWS, never what it infers.
             ear = " · no bridge-registered watcher (external pollers invisible)"
+        # ADMIN-ADDR-1: a SHARED ROLE is worn by a session on every box, so the
+        # bare identity is not a usable DM address — it reaches all of them and
+        # the reader cannot tell which one was meant. This directory used to
+        # print exactly that string and then instruct callers to "address an
+        # entry by its identity", which is how senders were taught the broken
+        # form: measured 149 of 200 messages in one admin inbox on the bare
+        # role. Show the address that actually names a box.
+        #
+        # Which host may we name? The one whose beat this row is reporting —
+        # `host` is the LAST beater and the age beside it is that session's.
+        # Other boxes are listed separately BECAUSE their freshness is not this
+        # row's, and printing them in the same column would be a second
+        # confident-and-wrong reading of one aggregate.
+        ident = e["identity"]
+        row_host = e.get("host")
+        if ident in SHARED_ROLE_IDENTITIES and row_host:
+            ident = f"{ident}@{row_host}"
+            others = [h for h in (e.get("hosts_seen") or []) if h != row_host]
+            if others:
+                shared_role_hosts.append((e["identity"], row_host, others))
         lines.append(
-            f"  {e['identity']:<28} [{e.get('provider') or '?'}] "
+            f"  {ident:<28} [{e.get('provider') or '?'}] "
             f"project={e['project']} last spoke {age}s ago{stale}{ear}{clash}"
         )
     head = (
         f"Addresses on record ({len(entries)}) — a directory, not a liveness "
         f"check:\n" + "\n".join(lines)
     )
+    if shared_role_hosts:
+        bullets = []
+        for role, row_host, others in shared_role_hosts:
+            addrs = ", ".join(f"{role}@{h}" for h in others)
+            bullets.append(
+                f"{role}@{row_host} is the beat above; also seen on {addrs}"
+            )
+        head += (
+            "\n\n🏠 SHARED ROLE, ONE ROW PER BEAT: " + " · ".join(bullets)
+            + f" — '{'/'.join(sorted(SHARED_ROLE_IDENTITIES))}' is ONE role worn "
+            "by a session on every box, so the bare name is not a DM address: "
+            "it reaches all of them at once and none can tell which you meant. "
+            "Address a box (`<role>@<host>`), or `<role>@fleet` when you really "
+            "do mean all of them. The ages above belong to the beat this row "
+            "reports; the other hosts' freshness is NOT this row's and is not "
+            "shown — ask them, or look for their own row."
+        )
     if deaf:
         head += (
             f"\n\n🔇 ADDRESSABLE, NO WATCHER BEAT: {', '.join(deaf)} — mail is "

@@ -197,3 +197,86 @@ async def test_old_server_without_the_field_is_not_rendered_as_unheld(monkeypatc
     assert "watcher beat recently" in out
     assert "NOBODY OWNS" not in out
     assert "BEATING BUT UNOWNED" not in out
+
+
+# ---------------------------------------------------------- ADMIN-ADDR-1
+#
+# The directory used to print the BARE shared role and then instruct callers to
+# "address an entry by its identity" — which is how senders were taught the
+# form that reaches every box at once. Measured 2026-08-29: 149 of 200 messages
+# in one admin inbox were on the bare role, and a session started another host's
+# work from a request it could not recognise as not-its-own.
+
+
+@pytest.mark.asyncio
+async def test_shared_role_renders_a_box_address_not_the_bare_name(monkeypatch):
+    out = await _render(monkeypatch, [
+        _entry("admin", project="admin", host="hosta",
+               hosts_seen=["hosta"], watcher_alive=True),
+    ])
+    assert "admin@hosta" in out, "the roster must offer a DM-able address"
+    # The bare role must not be sitting in the identity column pretending to be
+    # one. It may still appear in prose (the footer explains the rule).
+    assert "  admin  " not in out
+    assert "\n  admin " not in out
+
+
+@pytest.mark.asyncio
+async def test_other_boxes_are_named_but_not_given_this_row_freshness(monkeypatch):
+    """The age belongs to the LAST beater — the others' does not.
+
+    Printing every host in the identity column would attach one row's
+    freshness to sessions that never reported it: a second confident-and-wrong
+    reading of a single aggregate, which is the exact failure WATCH-RENDER-1
+    and ROSTER-BLIND-1 were both about.
+    """
+    out = await _render(monkeypatch, [
+        _entry("admin", project="admin", host="hosta",
+               hosts_seen=["hosta", "hostb", "hostc"],
+               age_seconds=17.0, watcher_alive=True),
+    ])
+    assert "admin@hosta" in out
+    assert "admin@hostb" in out and "admin@hostc" in out
+    assert "SHARED ROLE" in out
+    # Says where the age applies and refuses to imply it covers the others.
+    assert "NOT this row's" in out
+    # Teaches both valid send forms.
+    assert "@fleet" in out
+    # Exactly one row in the identity column, not three.
+    assert out.count("project=admin last spoke") == 1
+
+
+@pytest.mark.asyncio
+async def test_single_box_shared_role_gets_no_footer(monkeypatch):
+    """No other hosts seen ⇒ nothing to disambiguate ⇒ no noise."""
+    out = await _render(monkeypatch, [
+        _entry("admin", project="admin", host="hosta", hosts_seen=["hosta"]),
+    ])
+    assert "admin@hosta" in out
+    assert "SHARED ROLE" not in out
+
+
+@pytest.mark.asyncio
+async def test_ordinary_identities_are_untouched(monkeypatch):
+    out = await _render(monkeypatch, [
+        _entry("proj-claude-1", host="hosta", hosts_seen=["hosta"],
+               watcher_alive=True),
+    ])
+    assert "proj-claude-1" in out
+    assert "proj-claude-1@hosta" not in out, \
+        "only SHARED roles are host-qualified; a seat already names one session"
+    assert "SHARED ROLE" not in out
+
+
+@pytest.mark.asyncio
+async def test_shared_role_with_no_host_is_left_alone(monkeypatch):
+    """No beat has carried a host — so there is no box to name.
+
+    Rendering `admin@None` or guessing would be worse than the bare name: the
+    bare name is at least honestly ambiguous.
+    """
+    out = await _render(monkeypatch, [
+        _entry("admin", project="admin", host=None, hosts_seen=[]),
+    ])
+    assert "admin@" not in out
+    assert "admin" in out

@@ -49,12 +49,12 @@ def test_the_stripping_that_caused_this_is_still_what_it_was():
     adversarial review 2026-08-14), so it stays the wire contract.
     """
     assert reader_to_address("admin@hosta") == "admin"
-    assert reader_to_address("engram-claude-12@macmini") == "engram-claude-12"
+    assert reader_to_address("engram-claude-12@hostc") == "engram-claude-12"
     assert reader_to_address("machine:hosta") == "machine:hosta"
 
 
 def test_non_admin_addresses_pass_through_untouched():
-    assert qualify_admin_target("engram", "engram@macmini") == "engram"
+    assert qualify_admin_target("engram", "engram@hostc") == "engram"
     assert qualify_admin_target("projbeta", "admin@hosta") == "projbeta"
     assert qualify_admin_target("administrator", "admin@hosta") == "administrator"
     assert qualify_admin_target("admin-grok", "admin@hosta") == "admin-grok"
