@@ -33,10 +33,30 @@ fail=0
 # Lines matching this are placeholders, not leaks: localhost targets, doc
 # example domains (RFC 2606), format-string/template braces, <angle> stubs.
 ALLOW='placeholder|@email\.com|postgresql@|@(localhost|127\.0\.0\.1|test\.)|example\.(com|org|net)|users\.noreply\.github\.com|\{[A-Za-z_. ]+\}|<[^>]*>'
+# HYGIENE-UNTRACKED-1: what gets scanned, computed ONCE so every scan and the
+# final verdict describe the same set.
+#
+# `git ls-files` alone is TRACKED FILES ONLY, and a new file is untracked until
+# the instant it is committed — so the check was blind to exactly the files most
+# likely to carry a fresh leak, and printed "clean (denylist enforced)" about
+# content it had never opened. Measured 2026-08-29 by walking into it: the check
+# passed, and the commit reached the public remote carrying a denylisted
+# hostname 11 times across two brand-new test files.
+#
+# Untracked-but-not-ignored files are therefore included. Ignored files stay
+# out on purpose: .env and friends are ignored BECAUSE they hold secrets, they
+# are never pushed, and scanning them would fail every run for the one reason
+# that does not matter.
+FILES_TRACKED=$(git ls-files)
+FILES_NEW=$(git ls-files -o --exclude-standard)
+N_TRACKED=$(printf '%s' "$FILES_TRACKED" | grep -c . || true)
+N_NEW=$(printf '%s' "$FILES_NEW" | grep -c . || true)
+scan_files() { printf '%s\n%s\n' "$FILES_TRACKED" "$FILES_NEW" | grep -v '^$'; }
+
 scan() { # scan <label> <extended-regex> [extra grep args...]
   local label="$1" pattern="$2"; shift 2
   local hits n
-  hits=$(git ls-files -z \
+  hits=$(scan_files | tr '\n' '\0' \
     | xargs -0 grep -InE "$@" -- "$pattern" 2>/dev/null \
     | grep -vE '(^|/)repo-hygiene-check\.sh:' \
     | grep -vE "$ALLOW" || true)
@@ -111,12 +131,19 @@ if [ "$denylist_found" -eq 0 ] && [ "$ALLOW_NO_DENYLIST" -eq 0 ]; then
 fi
 
 if [ "$fail" -eq 0 ]; then
+  # HYGIENE-UNTRACKED-1: a clean result must be able to state its own SCOPE.
+  # "clean" that cannot say what it read is how this check passed a commit
+  # carrying a denylisted name — the miss was not the defect, the unqualified
+  # verdict was.
+  scope="${N_TRACKED} tracked"
+  if [ "${N_NEW:-0}" -gt 0 ]; then scope="$scope + ${N_NEW} new"; fi
+  scope="$scope files scanned"
   if [ "$denylist_found" -eq 1 ]; then
-    echo "✓ repo-hygiene: clean (denylist enforced)"
+    echo "✓ repo-hygiene: clean (denylist enforced; $scope)"
   else
     # Say what was NOT checked. "clean" with a skipped scan behind it is the
     # exact thing this script was changed to stop doing.
-    echo "✓ repo-hygiene: clean — BUT NO DENYLIST: names were not checked"
+    echo "✓ repo-hygiene: clean — BUT NO DENYLIST: names were not checked ($scope)"
   fi
 else
   echo
