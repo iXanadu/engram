@@ -1025,6 +1025,23 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Owner's drivable menu — store & ops (start when the owner names one)
 
+- **LIBRARIAN-1** *(owner opened the question 2026-08-29; discussion doc written,
+  nothing decided.)* **Is the shared-lesson corpus a resource or a hoard, and
+  should there be a curated encyclopedia on top of it?**
+  Measured that night: 1,071 shared lessons, 43% never read since written, and
+  knowledge calls are 0.4% of all store traffic — capture is not the bottleneck,
+  retrieval is. A same-day self-test found one lesson rediscovered the hard way
+  that had been written the day before, and one that was genuinely new — so both
+  cases are real and we cannot currently tell them apart when it matters.
+  Two questions gate any design and the owner has not answered them: is the
+  encyclopedia for HIM (curated prose) or for AGENTS (an index and a retrieval
+  discipline), and is librarian a standing duty or on-demand.
+  Recommended first step is a sample of never-read lessons — it separates a
+  hoarding problem from a discovery problem, and the fixes differ completely.
+  Full detail, the numbers, and the reproducing SQL:
+  project memory `strategy/librarian-and-the-encyclopedia-2026-08-29`.
+  · Status: OPEN (owner drives) · Found: owner question 2026-08-29
+
 - **LIBRARIAN-SHIFT-1** ★ Owner direction 2026-08-18: the librarian role
   (judgment curation — GrokBot contributions via the mail protocol, MEM-7
   passes, estate decisions) runs as a DAILY SHIFT, not an always-on brain.
