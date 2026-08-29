@@ -438,6 +438,36 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
 
 ## Blocking-ish — ops gaps that cost live sessions today
 
+- **ADMIN-ADDR-1 (phases b–d)** *(server + bridge halves SHIPPED; enforcement is
+  gated OFF until the fleet is swept. Owner ruled the item outside the messaging
+  freeze and named `admin@fleet` as the broadcast form.)*
+  `class:structural-not-discipline`
+  The shared `admin` role now has two valid forms — `admin@<host>` for one box,
+  `admin@fleet` for a deliberate fleet-wide announcement — and the bare string is
+  refused at the send door with a 409 that teaches both. **The refusal is behind
+  `ENGRAM_REQUIRE_QUALIFIED_ADMIN`, default OFF, and MUST NOT be flipped yet.**
+  Deployed bridges route a cross-project reply to `from_project`, which for an
+  admin sender IS the bare string, so enforcing before the sweep would refuse
+  ordinary replies to admin sessions fleet-wide.
+  Remaining, in order:
+  (b) sweep every box's bridge (`git pull` + `scripts/install-mcp-wrapper.sh`) so
+      replies resolve host-qualified and admin sessions declare `admin@fleet`;
+  (c) census live bridges per box and confirm none is still pre-sweep — the
+      Band-A gate shape, and a long-lived admin session on a quiet box is exactly
+      the reader that lingers;
+  (d) then set `ENGRAM_REQUIRE_QUALIFIED_ADMIN=true` in prod `.env` and bounce.
+  Read-side `admin@fleet` expansion is already live and needs no sweep — a reader
+  on the bare role matches it server-side, so the broadcast reaches sessions that
+  started before any of this.
+  NOT DONE, and deliberately separate: the ROSTER still collapses every admin
+  session on the fleet to one row named `admin`, so the directory hands senders
+  the refused form and there is no way to discover `admin@<host>` from it. The
+  data is already there (`hosts_seen`, PRES-2). Fixing it is required before (d)
+  or enforcement makes the system unusable while it is correct.
+  Also open: the same fleet-wide flattening in admin MEMORY — `project = admin`
+  is one partition for all boxes, so `wip/current` and `startup/next` are single
+  shared rows every box overwrites and inherits. Detail in project memory.
+
 - **SUPERSEDE-BRICKS-KEY-1** *(measured and reported by a peer project's session
   2026-08-28, with both error paths named; confirmed here by enumerating their
   partition.)* `class:absence-vs-failure`

@@ -42,6 +42,37 @@ sessions; neither box answers to the other's address. This is the address to
 reach for when you know *what a session is* and *where it runs* but not what
 seat a launcher happened to assign it — which is the normal case for a human.
 
+> ⛔ **`admin` alone is not an address you should send to.** `admin` is
+> deliberately ONE role worn by a maintenance session on **every** box, so the
+> bare string reaches all of them and the reader cannot tell which one you
+> meant. Measured on one box 2026-08-29: **149 of 200** messages in its inbox
+> were on the bare role, roughly a quarter of those were box-specific work for
+> a *different* machine, and a session started another host's job from a
+> request it had no way to recognise as not-its-own.
+>
+> Name the machine axis. Two forms are valid:
+>
+> | Form | Reaches | Use for |
+> |---|---|---|
+> | `admin@<host>` | the maintenance session on one box | anything box-specific — nearly everything |
+> | `admin@fleet` | every admin session, on purpose | a genuine fleet-wide announcement |
+>
+> The broadcast still exists; it just has to be **typed**. What is refused is
+> the form that cannot distinguish *"all of you"* from *"whichever of you I
+> meant"*. When enforcement is on, a bare `admin` send returns **409** with
+> both forms in the message — the same shape as the retired `#channels`.
+>
+> This is enforced rather than documented-and-hoped because discipline
+> provably does not hold here: the roster offers only the bare `admin`
+> identity and tells senders to address it, `to` is unvalidated free text, and
+> the cross-project reply rule routes to `from_project` — the bare string for
+> an admin sender. **Three of the four routes to this address are chosen by
+> the system, not by the sender**, so the operator whose surface auto-qualified
+> his mail scored 11/12 while agents composing by hand scored far worse. The
+> bridge now keeps the host on admin replies, and admin sessions listen on
+> `admin@fleet` as well as the bare role (mail already sent to the bare role
+> stays readable — the refusal is about *sending*, not listening).
+
 > ⚠️ **`<project>@<host>` is unique per box, not per session.** Run two
 > sessions of one project on one box and both answer to it — it is a *group
 > narrowed to a host*, not a claim of uniqueness. That second session is

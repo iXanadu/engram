@@ -53,7 +53,12 @@ from server.models import (
     RosterResponse,
 )
 from server.services.audit_service import audit
-from server.services.identity import autocorrect_address, validate_listen_set
+from server.services.identity import (
+    ADMIN_FLEET,
+    autocorrect_address,
+    is_unqualified_admin,
+    validate_listen_set,
+)
 from server.services.session_registry import SEAT_SCOPE, unknown_root_advisories
 from server.services.inbox_guidance import (
     ack_guidance,
@@ -823,6 +828,33 @@ async def send_inbox(req: InboxSendRequest, request: Request):
                 + ", ".join(_hash_targets[:8])
             ),
         )
+    # ADMIN-ADDR-1: the BARE shared role is refused at the door — it cannot
+    # say which machine it means. Same shape as the #channels rip above:
+    # refusal, not a silent rewrite, because a sender who meant one box must
+    # find out at send time rather than have the server guess a host for them.
+    #
+    # GATED (require_qualified_admin, default OFF). Deployed bridges route a
+    # cross-project reply to `from_project` — the bare string for an admin
+    # sender — so enforcing before the bridge sweep would refuse ordinary
+    # replies fleet-wide. See the config note for the migration order.
+    from server.config import settings as _admin_settings
+    if _admin_settings.require_qualified_admin:
+        _bare_admin = [t for t, _ in corrected if is_unqualified_admin(t)]
+        if _bare_admin:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "'admin' is a shared role worn by a maintenance session on "
+                    "EVERY box, so mail addressed to it bare is delivered to all "
+                    "of them and no reader can tell which one you meant. Name the "
+                    "machine axis: 'admin@<host>' for one box, or '"
+                    + ADMIN_FLEET + "' for a deliberate "
+                    "announcement to every admin session. Measured 2026-08-29: "
+                    "149 of 200 messages in one admin inbox were on the bare "
+                    "role, and a session began another box's work from one it "
+                    "could not recognise as not-its-own. Refused: admin"
+                ),
+            )
     # HUD-1 — private multi-party threads. A fan-out is a GROUP, so record who
     # is in it and give every copy ONE thread id. Both are load-bearing:
     #

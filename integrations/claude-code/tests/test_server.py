@@ -86,7 +86,7 @@ async def test_memory_store_admin_sends_admin_provenance(respx_mock):
     import json as _json
     body = _json.loads(req.content)
     assert body["reader_identity"] == "admin@hosta"
-    assert body["listen_set"] == ["admin", "machine:hosta", "admin@hosta"]
+    assert body["listen_set"] == ["admin", "admin@fleet", "machine:hosta", "admin@hosta"]
 
 
 @respx.mock(base_url="http://localhost:8920")

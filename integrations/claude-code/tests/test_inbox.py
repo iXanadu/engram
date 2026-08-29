@@ -103,17 +103,22 @@ def test_compute_identity_project():
 def test_compute_identity_admin_symmetric():
     # Admin sessions are symmetric with project sessions: loose role name,
     # machine address, and fully-qualified reader_identity.
+    #
+    # ADMIN-ADDR-1 adds `admin@fleet` between the role and the machine: the
+    # DECLARED fleet-wide broadcast, distinct from the bare role. The bare role
+    # stays in the listen_set on purpose — mail already addressed to it must
+    # remain readable, and the refusal is about SENDING, not listening.
     with patch("engram_mcp.identity.hostname", return_value="hosta"):
         reader, listen_set = compute_identity("/Users/dev")
     assert reader == "admin@hosta"
-    assert listen_set == ["admin", "machine:hosta", "admin@hosta"]
+    assert listen_set == ["admin", "admin@fleet", "machine:hosta", "admin@hosta"]
 
 
 def test_compute_identity_admin_for_system_paths():
     with patch("engram_mcp.identity.hostname", return_value="hosta"):
         reader, listen_set = compute_identity("/opt/srv")
     assert reader == "admin@hosta"
-    assert listen_set == ["admin", "machine:hosta", "admin@hosta"]
+    assert listen_set == ["admin", "admin@fleet", "machine:hosta", "admin@hosta"]
 
 
 def test_reader_to_address_project():

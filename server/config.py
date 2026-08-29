@@ -175,6 +175,22 @@ class Settings(BaseSettings):
     # ENGRAM_OWNER_PRINCIPAL_NAME in .env.
     owner_principal_name: str = ""
 
+    # ADMIN-ADDR-1: refuse mail addressed to the BARE shared role `admin` and
+    # require a machine axis — `admin@<host>` for one box, `admin@fleet` for a
+    # deliberate fleet-wide announcement.
+    #
+    # DEFAULT OFF, AND THE ORDER MATTERS. Deployed bridges route a
+    # cross-project reply to `from_project`, which for an admin session IS the
+    # bare string — so flipping this before every bridge is swept would refuse
+    # ordinary replies to admin sessions fleet-wide. Migration order:
+    #   (a) deploy the server (read-side `admin@fleet` expansion is live
+    #       immediately and is safe on its own — it only ADDS deliverability),
+    #   (b) sweep every box's bridge so replies resolve host-qualified,
+    #   (c) confirm no live session is still on a pre-sweep bridge,
+    #   (d) THEN flip this on.
+    # OFF is byte-identical to previous behaviour at the send door.
+    require_qualified_admin: bool = False
+
     # Search tuning
     vector_threshold: float = 0.35
     trigram_weight: float = 0.15

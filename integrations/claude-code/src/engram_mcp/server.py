@@ -16,6 +16,7 @@ from engram_mcp.client import MemoryClient, last_server_time_iso
 from engram_mcp.client import AUTH_REFUSAL_LIMIT, auth_health, auth_is_refused
 from engram_mcp.config import CONFIG_SOURCE, settings
 from engram_mcp.identity import (
+    qualify_admin_target,
     INBOX_IDENTITY_ENV,
     admin_was_fallback,
     compute_identity,
@@ -2586,7 +2587,7 @@ async def memory_reply(
         if not reply_to:
             # Degenerate: we are the only listed participant. Fall back to the
             # sender so the reply still lands somewhere real.
-            reply_to = reader_to_address(raw_from)
+            reply_to = qualify_admin_target(reader_to_address(raw_from), raw_from)
     elif (parent.get("from_project")
           and (parent["from_project"] or "").strip().lower()
               != _own_project()):
@@ -2600,6 +2601,10 @@ async def memory_reply(
         # provenance header, so legacy rows without it fall through to
         # LANE-5/sender routing below, unchanged.
         reply_to = (parent["from_project"] or "").strip().lower()
+        # ADMIN-ADDR-1: `admin` is a shared role across every box, so routing
+        # to it bare fans a one-box answer out to the whole fleet. Keep the
+        # host the parent's own From line already carries.
+        reply_to = qualify_admin_target(reply_to, raw_from)
         effective_intent = intent  # a cross-project answer deserves the wake
     else:
         # LANE-5: replies target the sender's immortal LANE whenever its
@@ -2621,7 +2626,11 @@ async def memory_reply(
         #
         # LEGACY mail (no stamp) routes exactly as before.
         parent_lane = (parent.get("from_lane") or "").strip().lower()
-        reply_to = parent_lane or reader_to_address(raw_from)
+        # ADMIN-ADDR-1: admin has no lanes (SEAT-ADMIN-1), so this path
+        # resolves an admin sender to the bare shared role. Keep the host.
+        reply_to = qualify_admin_target(
+            parent_lane or reader_to_address(raw_from), raw_from
+        )
         effective_intent = intent  # DM replies keep waking by default
     thread_id = parent.get("thread_id") or parent["id"]
 

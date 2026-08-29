@@ -39,6 +39,11 @@ ADMIN_NAME = "admin"
 # by maintenance sessions fleet-wide on purpose (SEAT-ADMIN-1) — an
 # `admin-<provider>` lane would detach sessions from the role again.
 ADMIN_EXEMPT_LANE_PROJECTS = {ADMIN_NAME}
+# ADMIN-ADDR-1: the shared role, and the DECLARED fleet-wide broadcast form.
+# Bare `admin` reaches every admin session on every box and cannot say which
+# one the sender meant; `admin@fleet` says "all of you" on purpose.
+ADMIN_ROLE = ADMIN_NAME
+ADMIN_FLEET = f"{ADMIN_ROLE}@fleet"
 
 # Opt-in per-session inbox identity. When set, this session is ADDRESSED as
 # ``<value>@<host>`` and sends FROM that identity, while still joining its
@@ -1037,7 +1042,13 @@ def compute_identity(project_dir: str | None) -> tuple[str, list[str]]:
     # LANE-2 applies to unseated sessions too: a bare hand-launched session is
     # still "the <provider> on this project" and must hear its lane.
     lane_entries = [lane, f"{lane}@{host}"] if lane else []
-    return (reader, [project, *lane_entries, *groups,
+    # ADMIN-ADDR-1: an admin session declares the fleet broadcast address so a
+    # DELIBERATE fleet-wide announcement has a real target, distinct from the
+    # bare role. The server also expands this at read time (so already-running
+    # sessions are reachable without a sweep) — declaring it here makes the
+    # session's own listen_set honest about what it answers to.
+    fleet_entries = [ADMIN_FLEET] if project == ADMIN_ROLE else []
+    return (reader, [project, *lane_entries, *groups, *fleet_entries,
                      f"machine:{host}", reader, *channels])
 
 
@@ -1058,6 +1069,39 @@ def sender_lane(project_dir: str | None) -> str:
         return ""
     lane = f"{project}-{resolve_provider()}"
     return lane if lane != project and _is_valid_seat(lane) else ""
+
+
+def qualify_admin_target(address: str, from_identity: str = "") -> str:
+    """Keep the machine axis on a reply to the shared `admin` role.
+
+    ADMIN-ADDR-1. `admin` is one role worn by a maintenance session on every
+    box, so the bare string addresses ALL of them. Two routing rules used to
+    strip the host and produce it without anyone choosing it:
+
+      * ``reader_to_address`` returns the name-part of ``<name>@<host>``, so
+        ``admin@hosta`` became ``admin``;
+      * the cross-project rule routes to ``from_project``, which for an admin
+        sender IS the bare string.
+
+    Both are correct for an ordinary project — a project channel SHOULD reach
+    every session on it. They are wrong for admin, whose sessions are on
+    different machines doing unrelated work: a reply meant for the box that
+    wrote to you gets delivered to all of them, and none can tell.
+
+    So when the target resolves to the bare role and the parent's own From
+    line carries a host, reply to THAT host. `from_identity` is the sender's
+    reader_identity (``admin@hosta``) — the machine axis is already on the
+    envelope; this stops discarding it.
+
+    Anything else passes through untouched, including `admin@fleet` (a
+    deliberate broadcast is a real target) and every non-admin address.
+    """
+    if not address or address.strip().lower() != ADMIN_ROLE:
+        return address
+    src = (from_identity or "").strip().lower()
+    if src.startswith(f"{ADMIN_ROLE}@") and src != ADMIN_FLEET:
+        return src
+    return address
 
 
 def reader_to_address(reader_identity: str) -> str:

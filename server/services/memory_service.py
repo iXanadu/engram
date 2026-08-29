@@ -3,6 +3,8 @@ import hashlib
 import json
 import re
 import uuid
+
+from server.services.identity import admin_listen_expansion
 from datetime import datetime, timedelta, timezone
 
 import asyncpg
@@ -1652,6 +1654,12 @@ async def inbox_list(
     listen_set = [addr.lower() for addr in listen_set]
     if not listen_set:
         return []
+    # ADMIN-ADDR-1: a reader on the bare shared role also receives the
+    # DECLARED broadcast form `admin@fleet`. Done here, server-side, so the
+    # new form is deliverable to every already-running admin session without
+    # waiting on a bridge sweep (a bridge change lands only at the next
+    # session start, and admin sessions on quiet boxes live for weeks).
+    listen_set = listen_set + admin_listen_expansion(listen_set)
     # Always select the NEWEST `limit` messages (inner DESC LIMIT), then present
     # them in the caller's reading order (outer sort). Selecting the oldest N
     # would hide the most-recent mail once the backlog exceeds `limit` — wrong
