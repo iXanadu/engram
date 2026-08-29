@@ -145,6 +145,33 @@ class MemoryClient:
                     _note_auth_failure(resp.status_code, path)
                 else:
                     _note_auth_ok()
+                # REFUSAL-DETAIL-1: surface the server's own explanation.
+                #
+                # `raise_for_status()` renders "Client error '409 Conflict'"
+                # and DISCARDS the response body — so a refusal designed to
+                # TEACH ("name the machine axis: admin@<host>, or admin@fleet")
+                # reached the agent as a bare status code with no way to learn
+                # what to do instead. Found by sending a deliberately-bad
+                # address through the real tool path after enforcement went
+                # live; every unit test passed, because they assert on the HTTP
+                # response and never travel through this wrapper.
+                #
+                # A refusal that cannot say why is just a wall. This project
+                # refuses at the door on purpose (#channels, bare `admin`) and
+                # every one of those refusals writes guidance into `detail`.
+                if resp.status_code >= 400:
+                    detail = ""
+                    try:
+                        body = resp.json()
+                        if isinstance(body, dict):
+                            detail = str(body.get("detail") or "").strip()
+                    except Exception:
+                        detail = ""
+                    if detail:
+                        raise httpx.HTTPStatusError(
+                            f"{resp.status_code}: {detail}",
+                            request=resp.request, response=resp,
+                        )
                 resp.raise_for_status()
                 return resp.json()
             except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout):

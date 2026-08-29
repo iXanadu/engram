@@ -19,6 +19,8 @@ until every bridge is swept, and the thing being swept is exactly the routing
 below — so if these regress, the gate can never be flipped.
 """
 
+import pytest
+
 import engram_mcp.identity as identity
 from engram_mcp.identity import (
     ADMIN_FLEET,
@@ -105,3 +107,79 @@ def test_non_admin_sessions_gain_no_fleet_address(monkeypatch):
     _, listen_set = compute_identity("/whatever")
     assert ADMIN_FLEET not in listen_set
     assert not any(a.endswith("@fleet") for a in listen_set)
+
+
+# ------------------------------------------------- REFUSAL-DETAIL-1
+#
+# Found live, not by unit test: after enforcement went on, a bare-`admin` send
+# through the real tool path surfaced as "Client error '409 Conflict'" and
+# nothing else. The server had sent a full explanation naming both valid forms;
+# `raise_for_status()` discarded the body. Every test passed, because they
+# assert on the HTTP response and never travel through the client wrapper.
+#
+# A refusal that cannot say why is just a wall.
+
+
+@pytest.mark.asyncio
+async def test_server_refusal_detail_reaches_the_caller(monkeypatch):
+    import httpx
+    from engram_mcp.client import MemoryClient
+
+    c = MemoryClient.__new__(MemoryClient)
+    guidance = ("'admin' is a shared role ... name the machine axis: "
+                "'admin@<host>' for one box, or 'admin@fleet' ...")
+
+    class _Resp:
+        status_code = 409
+        request = httpx.Request("POST", "http://x/memory/send")
+        headers: dict = {}
+
+        def json(self):
+            return {"detail": guidance}
+
+        def raise_for_status(self):
+            raise httpx.HTTPStatusError(
+                "Client error '409 Conflict' for url 'http://x/memory/send'",
+                request=self.request, response=None,
+            )
+
+    class _Inner:
+        async def request(self, *a, **kw):
+            return _Resp()
+
+    c._client = _Inner()
+    with pytest.raises(httpx.HTTPStatusError) as ei:
+        await c._request("POST", "/memory/send")
+    msg = str(ei.value)
+    assert "409" in msg
+    assert "admin@<host>" in msg, "the caller must be told what to do instead"
+    assert "admin@fleet" in msg
+
+
+@pytest.mark.asyncio
+async def test_a_detail_less_error_still_raises_normally(monkeypatch):
+    """No detail to surface ⇒ don't invent one; fall through untouched."""
+    import httpx
+    from engram_mcp.client import MemoryClient
+
+    c = MemoryClient.__new__(MemoryClient)
+
+    class _Resp:
+        status_code = 500
+        request = httpx.Request("POST", "http://x/memory/send")
+        headers: dict = {}
+
+        def json(self):
+            raise ValueError("not json")
+
+        def raise_for_status(self):
+            raise httpx.HTTPStatusError(
+                "Server error '500'", request=self.request, response=None)
+
+    class _Inner:
+        async def request(self, *a, **kw):
+            return _Resp()
+
+    c._client = _Inner()
+    with pytest.raises(httpx.HTTPStatusError):
+        await c._request("POST", "/memory/send")
