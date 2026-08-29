@@ -492,6 +492,24 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   measures and narrower than what its reader will take it to mean. Same family
   as the stale pins corrected in this room the same evening.
 
+  ⚠️ **SEVERITY RAISED 2026-08-28 — this is worse than written above.** An admin
+  session measured `memory_status` reporting `COVERED (reader attached)` with a
+  fresh beat while **NO PROCESS HELD THE FIFO AT ALL** (`lsof` showed no holder)
+  and the watcher's own log read *"waiting for a wake consumer … (claim follows
+  attach)"*. That is not narrow-but-true; it is FALSE, and it does not
+  self-heal: the session stayed deaf until a reader was attached by hand, after
+  which the log moved to "consumer attached" → "watch held by 'bridge'". The
+  session had correctly obeyed the standing rule — COVERED means do nothing — so
+  the status line is what kept it deaf.
+  LIKELY MECHANISM, reported with it: the FIFO path is derived from the session
+  NAME while the granted seat is a different string, so status and watcher can be
+  reasoning about different FIFOs. Same family as the launcher-hosted sessions of
+  2026-08-21 that sat unattached for a day while this line said otherwise.
+  FIX SHAPE: derive COVERED from the watcher's OWN attach state, or from an
+  actual open-for-read check on the FIFO — never from a value written elsewhere.
+  ⛔ Frozen with the rest of the messaging work; pinned so the evidence is not
+  lost and so nobody re-derives it from scratch.
+
 - **GRANT-1** *(half (a) SHIPPED 2026-08-17 — parking a DISTINCTIVE
   preferred name is now loud on the claim's warning channel, naming the
   parked address, the reason, and the drain path; base-name preferences
@@ -721,6 +739,22 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   let it become permanent clutter.
 
 ## Needs-decision
+
+- **WAL-RETENTION-1** *(measured by an admin session 2026-08-28: 3,703 files /
+  2.5 GB in the WAL archive under the dump dir, oldest 2026-08-11, growing
+  ~150 MB/day. Nothing in the backup config or `backup-db.sh` prunes it.)*
+  `class:absence-vs-failure`
+  **The WAL archive has no retention policy at all.** It is not failing — it
+  is growing without bound on local disk. The offsite cost is small because
+  the backup tool dedups, so nothing alerts and nothing will until the disk
+  does. Two shapes to choose between, and it is the owner's call which:
+  prune to the last N base backups, or move WAL archiving off the dump
+  directory entirely so the two lifecycles stop being entangled.
+  Whichever is chosen, the retention must live where the archiving happens —
+  putting it in `backup-db.sh` would give this script a scheduling
+  responsibility its own contract says it deliberately does not take.
+  · Status: OPEN (owner) · Root: archiving was added without a retention half
+  · Found: admin sweep 2026-08-28
 
 - **HIST-2** *(2026-08-26, after the history rewrite.)* The rewrite purged
   the tree's history and every clone, but the hosting platform keeps

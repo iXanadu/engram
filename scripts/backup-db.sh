@@ -185,7 +185,11 @@ log "ok — $SIZE, $TOC_LINES archive entries, verified readable"
 # system bash, not just a homebrew one that happens to be first on PATH.
 if [[ "$KEEP" -gt 0 ]]; then
   ls -1t "$OUT_DIR"/engram-*.dump 2>/dev/null | tail -n +$((KEEP + 1)) | while IFS= read -r f; do
-    [[ -n "$f" ]] && rm -f "$f" && log "rotated out $(basename "$f")"
+    # The manifest is the dump's sibling and must rotate WITH it — a manifest
+    # left behind describes a dump that no longer exists, and they accumulate
+    # forever (measured 2026-08-28: 1,650 manifests against 2 dumps).
+    [[ -n "$f" ]] && rm -f "$f" "${f%.dump}.manifest" \
+      && log "rotated out $(basename "$f") (and its manifest)"
   done
 fi
 
