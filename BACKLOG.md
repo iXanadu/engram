@@ -454,11 +454,19 @@ project memory (`fix/immortal-addresses-COMPLETE-2026-08-15`,
   to use on another writer's stale row. If retiring a row can brick its key,
   the safe-looking action is the one that causes the outage — and the damage is
   invisible until someone notices sessions starting cold.
-  FIX SHAPE (design call, not obvious): either a superseded row should stop
-  reserving its key so the next writer can take it, or supersede should refuse
-  when the caller could not subsequently write — failing loudly at the moment of
-  the decision instead of silently later. Do NOT "fix" it by loosening the
-  controller check on hard delete; the ownership rule is correct.
+  FIX SHAPE — PREFER THE FIRST OF THESE TWO: (a) a superseded row stops
+  reserving its key, so the next writer can take it; or (b) supersede refuses
+  when the caller could not subsequently write. The reporting session argued
+  for (a) and convinced me: (b) turns a currently-safe call into one that can
+  fail for reasons the caller cannot inspect beforehand, and the likely agent
+  response is to STOP SUPERSEDING STALE ROWS AT ALL — which is worse than the
+  bug, because the stale rows are what we were trying to retire. A fix that
+  makes the recommended action feel risky has moved the failure rather than
+  removed it.
+  Do NOT "fix" it by loosening the controller check on hard delete; the
+  ownership rule is correct and it worked here — it stopped a session
+  destroying a record that was not its own, at the cost of an inconvenience
+  that was routed around in ten minutes. That trade is right.
   The reporting project has already routed around it (dated keys plus a prefix
   enumeration in its startup), so this is not urgent — but it is latent on every
   project using a fixed handoff key.
